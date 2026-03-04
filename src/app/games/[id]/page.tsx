@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import {
@@ -26,6 +26,7 @@ const AT_BAT_OPTIONS: AtBatResult[] = ["1B", "2B", "3B", "HR", "OUT"];
 
 export default function GameDayPage() {
   const params = useParams();
+  const router = useRouter();
   const gameId = params.id as string;
 
   const [game, setGame] = useState<Game | null>(null);
@@ -192,6 +193,20 @@ export default function GameDayPage() {
       .eq("id", game!.id);
     setGame({ ...game!, is_finalized: newVal });
     toast.success(newVal ? "Game finalized" : "Game un-finalized");
+  }
+
+  async function deleteGame() {
+    if (!confirm("Delete this game and all its data? This cannot be undone.")) return;
+    await Promise.all([
+      supabase.from("at_bats").delete().eq("game_id", gameId),
+      supabase.from("game_lineups").delete().eq("game_id", gameId),
+      supabase.from("batting_orders").delete().eq("game_id", gameId),
+      supabase.from("pitching_plans").delete().eq("game_id", gameId),
+      supabase.from("game_absences").delete().eq("game_id", gameId),
+    ]);
+    await supabase.from("games").delete().eq("id", gameId);
+    toast.success("Game deleted");
+    router.push("/");
   }
 
   async function saveResult(result: string) {
@@ -725,6 +740,18 @@ export default function GameDayPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Delete Game */}
+      <div className="pt-4 border-t">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+          onClick={deleteGame}
+        >
+          Delete Game
+        </Button>
+      </div>
     </div>
   );
 }
