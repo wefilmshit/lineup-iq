@@ -32,9 +32,14 @@ export default function GamesPage() {
             </p>
           )}
         </div>
-        <Link href="/games/new">
-          <Button>New Game</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/games/log">
+            <Button variant="outline">Log Past Game</Button>
+          </Link>
+          <Link href="/games/new">
+            <Button>New Game</Button>
+          </Link>
+        </div>
       </div>
 
       {games.length === 0 ? (

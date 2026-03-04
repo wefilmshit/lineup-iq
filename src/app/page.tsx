@@ -97,7 +97,7 @@ export default function Home() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Link href="/games/new">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
             <CardContent className="py-6 text-center">
@@ -105,6 +105,17 @@ export default function Home() {
               <div className="font-semibold">New Game</div>
               <div className="text-sm text-muted-foreground">
                 Generate a fair lineup
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/games/log">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+            <CardContent className="py-6 text-center">
+              <div className="text-3xl mb-2">&#x1f4cb;</div>
+              <div className="font-semibold">Log Game</div>
+              <div className="text-sm text-muted-foreground">
+                Enter a past game
               </div>
             </CardContent>
           </Card>
