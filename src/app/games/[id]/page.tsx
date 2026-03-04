@@ -198,6 +198,25 @@ export default function GameDayPage() {
     toast.success(`Updated to ${newInnings} innings`);
   }
 
+  async function toggleAbsence(playerId: string) {
+    const existing = absences.find((a) => a.player_id === playerId);
+    if (existing) {
+      await supabase.from("game_absences").delete().eq("id", existing.id);
+      setAbsences((prev) => prev.filter((a) => a.id !== existing.id));
+      toast.success("Marked present");
+    } else {
+      const { data, error } = await supabase
+        .from("game_absences")
+        .insert({ game_id: gameId, player_id: playerId })
+        .select()
+        .single();
+      if (!error && data) {
+        setAbsences((prev) => [...prev, data as GameAbsence]);
+        toast.success("Marked absent");
+      }
+    }
+  }
+
   const fieldPositions: Position[] = [
     "P", "C", "1B", "2B", "SS", "3B", "RF", "RCF", "LCF", "LF",
   ];
@@ -219,16 +238,37 @@ export default function GameDayPage() {
       </div>
 
       {/* Absent Players */}
-      {absences.length > 0 && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="font-medium">Absent:</span>
-          {absences.map((a) => (
-            <Badge key={a.id} variant="outline" className="text-xs">
-              {playerMap.get(a.player_id)?.name ?? "?"}
-            </Badge>
-          ))}
-        </div>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Attendance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {players.map((p) => {
+              const isAbsent = absences.some((a) => a.player_id === p.id);
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => toggleAbsence(p.id)}
+                  className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                    isAbsent
+                      ? "bg-destructive/10 border-destructive/30 text-destructive line-through"
+                      : "bg-green-50 border-green-200 text-green-700"
+                  }`}
+                >
+                  {p.name}
+                  {isAbsent ? " (absent)" : ""}
+                </button>
+              );
+            })}
+          </div>
+          {absences.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-2">
+              {absences.length} absent — tap a name to toggle
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Inning Selector + Actual Innings */}
       <div className="flex gap-2 items-center flex-wrap">
