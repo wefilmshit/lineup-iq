@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
@@ -9,13 +9,19 @@ import {
   GameLineup,
   BattingOrder,
   PitchingPlan,
+  GameAbsence,
+  AtBat,
+  AtBatResult,
   Position,
 } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+
+const AT_BAT_OPTIONS: AtBatResult[] = ["1B", "2B", "3B", "HR", "OUT"];
 
 export default function GameDayPage() {
   const params = useParams();
@@ -26,6 +32,8 @@ export default function GameDayPage() {
   const [lineups, setLineups] = useState<GameLineup[]>([]);
   const [battingOrder, setBattingOrder] = useState<BattingOrder[]>([]);
   const [pitchingPlan, setPitchingPlan] = useState<PitchingPlan[]>([]);
+  const [absences, setAbsences] = useState<GameAbsence[]>([]);
+  const [atBats, setAtBats] = useState<AtBat[]>([]);
   const [currentInning, setCurrentInning] = useState(1);
   const [loading, setLoading] = useState(true);
 
@@ -35,41 +43,51 @@ export default function GameDayPage() {
     return m;
   }, [players]);
 
-  useEffect(() => {
-    async function load() {
-      const { data: gRaw } = await supabase
-        .from("games")
-        .select("*")
-        .eq("id", gameId)
-        .single();
-      if (!gRaw) return;
-      const g = gRaw as Game;
-      setGame(g);
+  const loadData = useCallback(async () => {
+    const { data: gRaw } = await supabase
+      .from("games")
+      .select("*")
+      .eq("id", gameId)
+      .single();
+    if (!gRaw) return;
+    const g = gRaw as Game;
+    setGame(g);
 
-      const [playersRes, lineupsRes, battingRes, pitchingRes] =
-        await Promise.all([
-          supabase.from("players").select("*").eq("team_id", g.team_id),
-          supabase.from("game_lineups").select("*").eq("game_id", gameId),
-          supabase
-            .from("batting_orders")
-            .select("*")
-            .eq("game_id", gameId)
-            .order("order_position"),
-          supabase
-            .from("pitching_plans")
-            .select("*")
-            .eq("game_id", gameId)
-            .order("inning"),
-        ]);
+    const [playersRes, lineupsRes, battingRes, pitchingRes, absencesRes, atBatsRes] =
+      await Promise.all([
+        supabase.from("players").select("*").eq("team_id", g.team_id),
+        supabase.from("game_lineups").select("*").eq("game_id", gameId),
+        supabase
+          .from("batting_orders")
+          .select("*")
+          .eq("game_id", gameId)
+          .order("order_position"),
+        supabase
+          .from("pitching_plans")
+          .select("*")
+          .eq("game_id", gameId)
+          .order("inning"),
+        supabase.from("game_absences").select("*").eq("game_id", gameId),
+        supabase
+          .from("at_bats")
+          .select("*")
+          .eq("game_id", gameId)
+          .order("inning")
+          .order("order_in_inning"),
+      ]);
 
-      if (playersRes.data) setPlayers(playersRes.data as Player[]);
-      if (lineupsRes.data) setLineups(lineupsRes.data as GameLineup[]);
-      if (battingRes.data) setBattingOrder(battingRes.data as BattingOrder[]);
-      if (pitchingRes.data) setPitchingPlan(pitchingRes.data as PitchingPlan[]);
-      setLoading(false);
-    }
-    load();
+    if (playersRes.data) setPlayers(playersRes.data as Player[]);
+    if (lineupsRes.data) setLineups(lineupsRes.data as GameLineup[]);
+    if (battingRes.data) setBattingOrder(battingRes.data as BattingOrder[]);
+    if (pitchingRes.data) setPitchingPlan(pitchingRes.data as PitchingPlan[]);
+    if (absencesRes.data) setAbsences(absencesRes.data as GameAbsence[]);
+    if (atBatsRes.data) setAtBats(atBatsRes.data as AtBat[]);
+    setLoading(false);
   }, [gameId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   if (loading || !game) {
     return <div className="text-muted-foreground">Loading...</div>;
@@ -95,9 +113,60 @@ export default function GameDayPage() {
       .filter(Boolean) as Player[];
   }
 
-  const currentPitcher = pitchingPlan.find(
+  const currentPitcherPlan = pitchingPlan.find(
     (pp) => pp.inning === currentInning
   );
+
+  // Total pitch count for the current pitcher across all their innings
+  const currentPitcherTotalPitches = useMemo(() => {
+    if (!currentPitcherPlan) return 0;
+    return pitchingPlan
+      .filter((pp) => pp.player_id === currentPitcherPlan.player_id)
+      .reduce((sum, pp) => sum + pp.pitch_count, 0);
+  }, [currentPitcherPlan, pitchingPlan]);
+
+  async function updatePitchCount(planId: string, delta: number) {
+    const plan = pitchingPlan.find((pp) => pp.id === planId);
+    if (!plan) return;
+    const newCount = Math.max(0, plan.pitch_count + delta);
+    await supabase
+      .from("pitching_plans")
+      .update({ pitch_count: newCount })
+      .eq("id", planId);
+    setPitchingPlan((prev) =>
+      prev.map((pp) =>
+        pp.id === planId ? { ...pp, pitch_count: newCount } : pp
+      )
+    );
+  }
+
+  async function recordAtBat(playerId: string, result: AtBatResult) {
+    const inningAtBats = atBats.filter((ab) => ab.inning === currentInning);
+    const orderInInning = inningAtBats.length + 1;
+
+    const { data, error } = await supabase
+      .from("at_bats")
+      .insert({
+        game_id: gameId,
+        player_id: playerId,
+        inning: currentInning,
+        result,
+        order_in_inning: orderInInning,
+      })
+      .select()
+      .single();
+
+    if (!error && data) {
+      setAtBats((prev) => [...prev, data as AtBat]);
+    }
+  }
+
+  async function removeLastAtBat() {
+    if (atBats.length === 0) return;
+    const last = atBats[atBats.length - 1];
+    await supabase.from("at_bats").delete().eq("id", last.id);
+    setAtBats((prev) => prev.slice(0, -1));
+  }
 
   async function saveResult(result: string) {
     await supabase.from("games").update({ result }).eq("id", game!.id);
@@ -105,17 +174,32 @@ export default function GameDayPage() {
     toast.success("Result saved");
   }
 
+  async function updateActualInnings(newInnings: number) {
+    await supabase
+      .from("games")
+      .update({ innings: newInnings })
+      .eq("id", game!.id);
+    setGame({ ...game!, innings: newInnings });
+    toast.success(`Updated to ${newInnings} innings`);
+  }
+
+  // Compute box score
+  const boxScore = useMemo(() => {
+    const hits = atBats.filter((ab) => ab.result !== "OUT");
+    const outs = atBats.filter((ab) => ab.result === "OUT");
+    return {
+      total: atBats.length,
+      hits: hits.length,
+      outs: outs.length,
+      singles: atBats.filter((ab) => ab.result === "1B").length,
+      doubles: atBats.filter((ab) => ab.result === "2B").length,
+      triples: atBats.filter((ab) => ab.result === "3B").length,
+      homeRuns: atBats.filter((ab) => ab.result === "HR").length,
+    };
+  }, [atBats]);
+
   const fieldPositions: Position[] = [
-    "P",
-    "C",
-    "1B",
-    "2B",
-    "SS",
-    "3B",
-    "RF",
-    "RCF",
-    "LCF",
-    "LF",
+    "P", "C", "1B", "2B", "SS", "3B", "RF", "RCF", "LCF", "LF",
   ];
 
   return (
@@ -129,11 +213,25 @@ export default function GameDayPage() {
           </h1>
           <p className="text-muted-foreground">{game.date}</p>
         </div>
-        {game.result && <Badge className="text-lg px-4 py-1">{game.result}</Badge>}
+        {game.result && (
+          <Badge className="text-lg px-4 py-1">{game.result}</Badge>
+        )}
       </div>
 
-      {/* Inning Selector */}
-      <div className="flex gap-2 items-center">
+      {/* Absent Players */}
+      {absences.length > 0 && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="font-medium">Absent:</span>
+          {absences.map((a) => (
+            <Badge key={a.id} variant="outline" className="text-xs">
+              {playerMap.get(a.player_id)?.name ?? "?"}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* Inning Selector + Actual Innings */}
+      <div className="flex gap-2 items-center flex-wrap">
         <span className="text-sm font-medium text-muted-foreground">
           Inning:
         </span>
@@ -147,7 +245,97 @@ export default function GameDayPage() {
             {i + 1}
           </Button>
         ))}
+        <div className="ml-auto flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">
+            Innings played:
+          </Label>
+          <Input
+            type="number"
+            min={1}
+            max={9}
+            value={innings}
+            onChange={(e) => {
+              const v = parseInt(e.target.value);
+              if (v >= 1 && v <= 9) updateActualInnings(v);
+            }}
+            className="w-16 h-8 text-sm"
+          />
+        </div>
       </div>
+
+      {/* Pitch Counter */}
+      {currentPitcherPlan && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Pitch Counter</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-6">
+              <div>
+                <div className="text-sm text-muted-foreground">
+                  Pitcher (Inn {currentInning})
+                </div>
+                <div className="text-xl font-bold">
+                  {playerMap.get(currentPitcherPlan.player_id)?.name}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-14 h-14 text-2xl"
+                  onClick={() => updatePitchCount(currentPitcherPlan.id, -1)}
+                >
+                  -
+                </Button>
+                <div className="text-center">
+                  <div
+                    className={`text-4xl font-bold tabular-nums ${
+                      currentPitcherTotalPitches >= 40
+                        ? "text-destructive"
+                        : currentPitcherTotalPitches >= 30
+                        ? "text-yellow-500"
+                        : ""
+                    }`}
+                  >
+                    {currentPitcherPlan.pitch_count}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    this inning
+                  </div>
+                </div>
+                <Button
+                  variant="default"
+                  size="lg"
+                  className="w-14 h-14 text-2xl"
+                  onClick={() => updatePitchCount(currentPitcherPlan.id, 1)}
+                >
+                  +
+                </Button>
+              </div>
+              <div className="text-center">
+                <div
+                  className={`text-2xl font-bold tabular-nums ${
+                    currentPitcherTotalPitches >= 40
+                      ? "text-destructive"
+                      : ""
+                  }`}
+                >
+                  {currentPitcherTotalPitches}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  total pitches
+                </div>
+                {currentPitcherTotalPitches >= 40 && (
+                  <div className="text-xs text-destructive font-medium mt-1">
+                    AT LIMIT
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Current Inning Lineup */}
       <Card>
@@ -205,6 +393,89 @@ export default function GameDayPage() {
         </CardContent>
       </Card>
 
+      {/* Hit Tracker */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Hit Tracker</CardTitle>
+            {boxScore.total > 0 && (
+              <div className="flex items-center gap-3 text-sm">
+                <span>
+                  {boxScore.hits}H / {boxScore.outs}O
+                </span>
+                {boxScore.singles > 0 && <Badge variant="outline">{boxScore.singles} 1B</Badge>}
+                {boxScore.doubles > 0 && <Badge variant="outline">{boxScore.doubles} 2B</Badge>}
+                {boxScore.triples > 0 && <Badge variant="outline">{boxScore.triples} 3B</Badge>}
+                {boxScore.homeRuns > 0 && <Badge variant="default">{boxScore.homeRuns} HR</Badge>}
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {battingOrder.map((b) => {
+              const player = playerMap.get(b.player_id);
+              const playerAtBats = atBats.filter(
+                (ab) => ab.player_id === b.player_id
+              );
+              return (
+                <div
+                  key={b.player_id}
+                  className="flex items-center gap-3 py-1"
+                >
+                  <span className="text-sm font-bold text-muted-foreground w-5 text-right">
+                    {b.order_position}
+                  </span>
+                  <span className="text-sm font-medium w-28 truncate">
+                    {player?.name}
+                  </span>
+                  {/* At-bat results */}
+                  <div className="flex gap-1 flex-1">
+                    {playerAtBats.map((ab) => (
+                      <Badge
+                        key={ab.id}
+                        variant={ab.result === "OUT" ? "secondary" : "default"}
+                        className="text-xs"
+                      >
+                        {ab.result}
+                      </Badge>
+                    ))}
+                  </div>
+                  {/* Record buttons */}
+                  <div className="flex gap-1">
+                    {AT_BAT_OPTIONS.map((result) => (
+                      <button
+                        key={result}
+                        className={`text-xs px-2 py-1 rounded border ${
+                          result === "OUT"
+                            ? "hover:bg-muted"
+                            : "hover:bg-primary/10"
+                        }`}
+                        onClick={() => recordAtBat(b.player_id, result)}
+                      >
+                        {result}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {atBats.length > 0 && (
+            <div className="mt-3 pt-3 border-t">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive"
+                onClick={removeLastAtBat}
+              >
+                Undo Last At-Bat
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Full Position Grid */}
       <Card>
         <CardHeader>
@@ -241,7 +512,9 @@ export default function GameDayPage() {
                       <td
                         key={i}
                         className={`text-center py-2 px-3 whitespace-nowrap ${
-                          currentInning === i + 1 ? "bg-primary/10 font-medium" : ""
+                          currentInning === i + 1
+                            ? "bg-primary/10 font-medium"
+                            : ""
                         }`}
                       >
                         {p?.name ?? ""}
@@ -309,6 +582,38 @@ export default function GameDayPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pitching Summary */}
+      {pitchingPlan.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Pitching Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4 flex-wrap">
+              {pitchingPlan.map((pp) => (
+                <div
+                  key={pp.id}
+                  className="flex items-center gap-2 p-2 rounded-md border text-sm"
+                >
+                  <span className="text-muted-foreground">
+                    Inn {pp.inning}:
+                  </span>
+                  <span className="font-medium">
+                    {playerMap.get(pp.player_id)?.name}
+                  </span>
+                  <Badge
+                    variant={pp.pitch_count >= 40 ? "destructive" : "secondary"}
+                    className="text-xs"
+                  >
+                    {pp.pitch_count}p
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Save Result */}
       {!game.result && (

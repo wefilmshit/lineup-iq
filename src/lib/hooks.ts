@@ -2,7 +2,15 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "./supabase";
-import { Team, Player, Game, GameLineup, BattingOrder } from "./types";
+import {
+  Team,
+  Player,
+  Game,
+  GameLineup,
+  BattingOrder,
+  PitchingPlan,
+  GameAbsence,
+} from "./types";
 
 // Auto-create a default team if none exists
 async function ensureTeam(): Promise<Team> {
@@ -99,15 +107,17 @@ export function useGames(teamId: string | undefined) {
 export function useSeasonData(teamId: string | undefined) {
   const [lineups, setLineups] = useState<GameLineup[]>([]);
   const [battingOrders, setBattingOrders] = useState<BattingOrder[]>([]);
+  const [pitchingPlans, setPitchingPlans] = useState<PitchingPlan[]>([]);
+  const [absences, setAbsences] = useState<GameAbsence[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     if (!teamId) return;
 
-    // Get all game IDs for this team
+    // Get all games for this team (need innings for filtering)
     const { data: games } = await supabase
       .from("games")
-      .select("id")
+      .select("*")
       .eq("team_id", teamId);
 
     if (!games || games.length === 0) {
@@ -116,14 +126,35 @@ export function useSeasonData(teamId: string | undefined) {
     }
 
     const gameIds = games.map((g) => g.id);
+    // Build map of game_id -> actual innings played
+    const gameInningsMap = new Map<string, number>();
+    for (const g of games) {
+      gameInningsMap.set(g.id, (g as Game).innings);
+    }
 
-    const [lineupsRes, battingRes] = await Promise.all([
-      supabase.from("game_lineups").select("*").in("game_id", gameIds),
-      supabase.from("batting_orders").select("*").in("game_id", gameIds),
-    ]);
+    const [lineupsRes, battingRes, pitchingRes, absencesRes] =
+      await Promise.all([
+        supabase.from("game_lineups").select("*").in("game_id", gameIds),
+        supabase.from("batting_orders").select("*").in("game_id", gameIds),
+        supabase.from("pitching_plans").select("*").in("game_id", gameIds),
+        supabase.from("game_absences").select("*").in("game_id", gameIds),
+      ]);
 
-    if (lineupsRes.data) setLineups(lineupsRes.data as GameLineup[]);
+    // Filter lineups to only include innings actually played
+    const filteredLineups = (lineupsRes.data || []).filter((l) => {
+      const actualInnings = gameInningsMap.get(l.game_id);
+      return actualInnings === undefined || l.inning <= actualInnings;
+    }) as GameLineup[];
+
+    const filteredPitching = (pitchingRes.data || []).filter((p) => {
+      const actualInnings = gameInningsMap.get(p.game_id);
+      return actualInnings === undefined || p.inning <= actualInnings;
+    }) as PitchingPlan[];
+
+    setLineups(filteredLineups);
     if (battingRes.data) setBattingOrders(battingRes.data as BattingOrder[]);
+    setPitchingPlans(filteredPitching);
+    if (absencesRes.data) setAbsences(absencesRes.data as GameAbsence[]);
     setLoading(false);
   }, [teamId]);
 
@@ -131,5 +162,5 @@ export function useSeasonData(teamId: string | undefined) {
     refresh();
   }, [refresh]);
 
-  return { lineups, battingOrders, loading, refresh };
+  return { lineups, battingOrders, pitchingPlans, absences, loading, refresh };
 }

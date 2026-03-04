@@ -31,6 +31,16 @@ export type Database = {
         Insert: Omit<PitchingPlan, "id">;
         Update: Partial<Omit<PitchingPlan, "id">>;
       };
+      game_absences: {
+        Row: GameAbsence;
+        Insert: Omit<GameAbsence, "id">;
+        Update: Partial<Omit<GameAbsence, "id">>;
+      };
+      at_bats: {
+        Row: AtBat;
+        Insert: Omit<AtBat, "id" | "created_at">;
+        Update: Partial<Omit<AtBat, "id" | "created_at">>;
+      };
     };
   };
 };
@@ -41,6 +51,11 @@ export interface Team {
   season: string | null;
   league: string | null;
   innings_per_game: number;
+  max_pitch_innings_per_game: number;
+  max_pitches_per_game: number;
+  pitch_rest_threshold: number;
+  max_same_position_innings: number;
+  require_infield_inning: boolean;
   created_at: string;
 }
 
@@ -52,8 +67,10 @@ export interface Player {
   league_age: number | null;
   batting_rating: number;
   fielding_rating: number;
+  pitching_rating: number;
   can_pitch: boolean;
   can_catch: boolean;
+  preferred_pitcher: boolean;
   throws: "R" | "L";
   bats: "R" | "L" | "S";
   active: boolean;
@@ -68,6 +85,7 @@ export interface Game {
   date: string | null;
   opponent: string | null;
   innings: number;
+  planned_innings: number | null;
   result: string | null;
   notes: string | null;
   created_at: string;
@@ -94,6 +112,25 @@ export interface PitchingPlan {
   player_id: string;
   inning: number;
   pitch_count: number;
+}
+
+export interface GameAbsence {
+  id: string;
+  game_id: string;
+  player_id: string;
+  reason: string | null;
+}
+
+export type AtBatResult = "1B" | "2B" | "3B" | "HR" | "OUT";
+
+export interface AtBat {
+  id: string;
+  game_id: string;
+  player_id: string;
+  inning: number;
+  result: AtBatResult;
+  order_in_inning: number;
+  created_at: string;
 }
 
 export type Position =
@@ -141,23 +178,32 @@ export const POSITION_LABELS: Record<Position, string> = {
   BENCH: "Bench",
 };
 
-// Season stats per player (computed from game_lineups)
 export interface PlayerSeasonStats {
   playerId: string;
   playerName: string;
   totalInnings: number;
+  positionCounts: Record<Position, number>;
   infieldInnings: number;
   outfieldInnings: number;
   pitcherInnings: number;
   catcherInnings: number;
   benchInnings: number;
   gamesPlayed: number;
+  gamesAbsent: number;
   avgBattingPosition: number;
+  totalPitchCount: number;
 }
 
-// Generated lineup for a game
 export interface GeneratedLineup {
   positions: { playerId: string; inning: number; position: Position }[];
   battingOrder: { playerId: string; orderPosition: number }[];
   pitchingPlan: { playerId: string; inning: number }[];
+}
+
+export interface LeagueRules {
+  maxPitchInningsPerGame: number;
+  maxPitchesPerGame: number;
+  pitchRestThreshold: number;
+  maxSamePositionInnings: number;
+  requireInfieldInning: boolean;
 }

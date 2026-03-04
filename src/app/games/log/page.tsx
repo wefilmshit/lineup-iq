@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
 export default function LogGamePage() {
@@ -20,28 +21,52 @@ export default function LogGamePage() {
   const [opponent, setOpponent] = useState("");
   const [gameDate, setGameDate] = useState("");
   const [result, setResult] = useState("");
-  const [innings, setInnings] = useState(0);
+  const [plannedInnings, setPlannedInnings] = useState(0);
+  const [actualInnings, setActualInnings] = useState(0);
   const [inningsInitialized, setInningsInitialized] = useState(false);
+
+  // Absent player tracking
+  const [absentIds, setAbsentIds] = useState<Set<string>>(new Set());
 
   // grid[inning][position] = playerId
   const [grid, setGrid] = useState<Record<number, Record<string, string>>>({});
   // battingOrder[index] = playerId
   const [battingOrder, setBattingOrder] = useState<string[]>([]);
+  // pitchCounts[inning][playerId] = count
+  const [pitchCounts, setPitchCounts] = useState<
+    Record<number, Record<string, number>>
+  >({});
   const [saving, setSaving] = useState(false);
 
   // Initialize innings from team settings
   if (!inningsInitialized && team) {
-    setInnings(team.innings_per_game);
+    setPlannedInnings(team.innings_per_game);
+    setActualInnings(team.innings_per_game);
     setInningsInitialized(true);
   }
 
   const loading = teamLoading || playersLoading || gamesLoading;
+
+  // Filter out absent players
+  const activePlayers = useMemo(
+    () => players.filter((p) => !absentIds.has(p.id)),
+    [players, absentIds]
+  );
 
   const playerMap = useMemo(() => {
     const m = new Map<string, Player>();
     players.forEach((p) => m.set(p.id, p));
     return m;
   }, [players]);
+
+  function toggleAbsent(id: string) {
+    setAbsentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   // Get players assigned to field positions in a given inning
   function assignedInInning(inning: number): Set<string> {
@@ -53,17 +78,17 @@ export default function LogGamePage() {
     return assigned;
   }
 
-  // Get all unique players assigned across ALL innings (for batting order)
+  // Get all unique players assigned across ALL innings (for batting order + bench)
   const allAssignedPlayers = useMemo(() => {
     const ids = new Set<string>();
-    for (let inn = 1; inn <= innings; inn++) {
+    for (let inn = 1; inn <= actualInnings; inn++) {
       const inningData = grid[inn] || {};
       for (const pos of FIELD_POSITIONS) {
         if (inningData[pos]) ids.add(inningData[pos]);
       }
     }
     return ids;
-  }, [grid, innings]);
+  }, [grid, actualInnings]);
 
   function setPosition(inning: number, position: string, playerId: string) {
     setGrid((prev) => ({
@@ -71,6 +96,16 @@ export default function LogGamePage() {
       [inning]: {
         ...(prev[inning] || {}),
         [position]: playerId,
+      },
+    }));
+  }
+
+  function setPitchCount(inning: number, playerId: string, count: number) {
+    setPitchCounts((prev) => ({
+      ...prev,
+      [inning]: {
+        ...(prev[inning] || {}),
+        [playerId]: count,
       },
     }));
   }
@@ -103,7 +138,7 @@ export default function LogGamePage() {
 
     // Validate: check that at least some positions are filled
     let totalAssigned = 0;
-    for (let inn = 1; inn <= innings; inn++) {
+    for (let inn = 1; inn <= actualInnings; inn++) {
       totalAssigned += assignedInInning(inn).size;
     }
     if (totalAssigned === 0) {
@@ -130,7 +165,8 @@ export default function LogGamePage() {
         game_number: gameNumber,
         date: gameDate || null,
         opponent: opponent || null,
-        innings,
+        innings: actualInnings,
+        planned_innings: plannedInnings,
         result: result || null,
       })
       .select()
@@ -142,6 +178,15 @@ export default function LogGamePage() {
       return;
     }
 
+    // Save absences
+    if (absentIds.size > 0) {
+      const absenceRows = Array.from(absentIds).map((pid) => ({
+        game_id: game.id,
+        player_id: pid,
+      }));
+      await supabase.from("game_absences").insert(absenceRows);
+    }
+
     // Build lineup rows from grid
     const lineupRows: {
       game_id: string;
@@ -150,7 +195,7 @@ export default function LogGamePage() {
       position: string;
     }[] = [];
 
-    for (let inn = 1; inn <= innings; inn++) {
+    for (let inn = 1; inn <= actualInnings; inn++) {
       const inningData = grid[inn] || {};
       const assignedFieldIds = new Set<string>();
 
@@ -209,21 +254,21 @@ export default function LogGamePage() {
       }
     }
 
-    // Auto-extract pitching plan from grid P assignments
+    // Auto-extract pitching plan from grid P assignments + pitch counts
     const pitchingRows: {
       game_id: string;
       player_id: string;
       inning: number;
       pitch_count: number;
     }[] = [];
-    for (let inn = 1; inn <= innings; inn++) {
+    for (let inn = 1; inn <= actualInnings; inn++) {
       const pitcher = grid[inn]?.["P"];
       if (pitcher) {
         pitchingRows.push({
           game_id: game.id,
           player_id: pitcher,
           inning: inn,
-          pitch_count: 0,
+          pitch_count: pitchCounts[inn]?.[pitcher] || 0,
         });
       }
     }
@@ -267,7 +312,7 @@ export default function LogGamePage() {
           <CardTitle className="text-lg">Game Info</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div>
               <Label>Opponent</Label>
               <Input
@@ -285,16 +330,6 @@ export default function LogGamePage() {
               />
             </div>
             <div>
-              <Label>Innings</Label>
-              <Input
-                type="number"
-                min={1}
-                max={9}
-                value={innings}
-                onChange={(e) => setInnings(parseInt(e.target.value) || 4)}
-              />
-            </div>
-            <div>
               <Label>Result</Label>
               <Input
                 value={result}
@@ -302,7 +337,71 @@ export default function LogGamePage() {
                 placeholder="e.g. W 5-3"
               />
             </div>
+            <div>
+              <Label>Planned Innings</Label>
+              <Input
+                type="number"
+                min={1}
+                max={9}
+                value={plannedInnings}
+                onChange={(e) =>
+                  setPlannedInnings(parseInt(e.target.value) || 4)
+                }
+              />
+            </div>
+            <div>
+              <Label>Actual Innings</Label>
+              <Input
+                type="number"
+                min={1}
+                max={9}
+                value={actualInnings}
+                onChange={(e) =>
+                  setActualInnings(parseInt(e.target.value) || 4)
+                }
+              />
+            </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Absent Players */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Absent Players</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {players.map((p) => (
+              <label
+                key={p.id}
+                className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
+                  absentIds.has(p.id)
+                    ? "bg-destructive/10 border-destructive/30"
+                    : "bg-background border-transparent"
+                }`}
+              >
+                <Checkbox
+                  checked={absentIds.has(p.id)}
+                  onCheckedChange={() => toggleAbsent(p.id)}
+                />
+                <span className="text-sm">
+                  #{p.jersey_number} {p.name}
+                </span>
+                {absentIds.has(p.id) && (
+                  <span className="text-xs text-destructive font-medium">
+                    OUT
+                  </span>
+                )}
+              </label>
+            ))}
+          </div>
+          {absentIds.size > 0 && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {absentIds.size} absent — won&apos;t count against fairness
+              stats.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -318,7 +417,7 @@ export default function LogGamePage() {
                 <th className="text-left py-2 pr-2 font-medium text-muted-foreground w-16">
                   Pos
                 </th>
-                {Array.from({ length: innings }, (_, i) => (
+                {Array.from({ length: actualInnings }, (_, i) => (
                   <th key={i} className="text-center py-2 px-1 font-medium">
                     Inn {i + 1}
                   </th>
@@ -331,7 +430,7 @@ export default function LogGamePage() {
                   <td className="py-2 pr-2 font-medium text-muted-foreground">
                     {pos}
                   </td>
-                  {Array.from({ length: innings }, (_, i) => {
+                  {Array.from({ length: actualInnings }, (_, i) => {
                     const inning = i + 1;
                     const assigned = assignedInInning(inning);
                     const currentValue = grid[inning]?.[pos] || "";
@@ -346,7 +445,7 @@ export default function LogGamePage() {
                           }
                         >
                           <option value="">—</option>
-                          {players.map((p) => {
+                          {activePlayers.map((p) => {
                             const taken =
                               assigned.has(p.id) && p.id !== currentValue;
                             return (
@@ -355,7 +454,9 @@ export default function LogGamePage() {
                                 value={p.id}
                                 disabled={taken}
                               >
-                                {taken ? `(${p.name})` : `#${p.jersey_number} ${p.name}`}
+                                {taken
+                                  ? `(${p.name})`
+                                  : `#${p.jersey_number} ${p.name}`}
                               </option>
                             );
                           })}
@@ -373,7 +474,7 @@ export default function LogGamePage() {
             <span className="font-medium">Bench: </span>
             {allAssignedPlayers.size === 0
               ? "assign players above"
-              : Array.from({ length: innings }, (_, i) => {
+              : Array.from({ length: actualInnings }, (_, i) => {
                   const inning = i + 1;
                   const assigned = assignedInInning(inning);
                   const bench = Array.from(allAssignedPlayers)
@@ -387,6 +488,54 @@ export default function LogGamePage() {
                   .filter(Boolean)
                   .join(" | ")}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Pitch Counts */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Pitch Counts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {(() => {
+            // Collect pitchers per inning
+            const pitchers: { inning: number; playerId: string }[] = [];
+            for (let inn = 1; inn <= actualInnings; inn++) {
+              const pid = grid[inn]?.["P"];
+              if (pid) pitchers.push({ inning: inn, playerId: pid });
+            }
+            if (pitchers.length === 0) {
+              return (
+                <p className="text-sm text-muted-foreground">
+                  Assign pitchers in the grid above to enter pitch counts.
+                </p>
+              );
+            }
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {pitchers.map(({ inning, playerId }) => (
+                  <div key={`${inning}-${playerId}`}>
+                    <Label className="text-muted-foreground text-xs">
+                      Inn {inning}: {playerMap.get(playerId)?.name}
+                    </Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      value={pitchCounts[inning]?.[playerId] ?? ""}
+                      onChange={(e) =>
+                        setPitchCount(
+                          inning,
+                          playerId,
+                          parseInt(e.target.value) || 0
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
@@ -423,7 +572,7 @@ export default function LogGamePage() {
                     onChange={(e) => setBattingPlayer(idx, e.target.value)}
                   >
                     <option value="">— Select —</option>
-                    {players.map((p) => (
+                    {activePlayers.map((p) => (
                       <option key={p.id} value={p.id}>
                         #{p.jersey_number} {p.name}
                       </option>

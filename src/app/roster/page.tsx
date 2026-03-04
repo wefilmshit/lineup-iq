@@ -33,8 +33,10 @@ interface PlayerForm {
   league_age: string;
   batting_rating: string;
   fielding_rating: string;
+  pitching_rating: string;
   can_pitch: boolean;
   can_catch: boolean;
+  preferred_pitcher: boolean;
   throws: string;
   bats: string;
   notes: string;
@@ -46,8 +48,10 @@ const emptyPlayer: PlayerForm = {
   league_age: "",
   batting_rating: "5",
   fielding_rating: "5",
+  pitching_rating: "5",
   can_pitch: false,
   can_catch: false,
+  preferred_pitcher: false,
   throws: "R",
   bats: "R",
   notes: "",
@@ -78,8 +82,10 @@ export default function RosterPage() {
       league_age: player.league_age?.toString() ?? "",
       batting_rating: player.batting_rating.toString(),
       fielding_rating: player.fielding_rating.toString(),
+      pitching_rating: player.pitching_rating.toString(),
       can_pitch: player.can_pitch,
       can_catch: player.can_catch,
+      preferred_pitcher: player.preferred_pitcher,
       throws: player.throws,
       bats: player.bats,
       notes: player.notes ?? "",
@@ -97,8 +103,10 @@ export default function RosterPage() {
       league_age: form.league_age ? parseInt(form.league_age) : null,
       batting_rating: parseInt(form.batting_rating) || 5,
       fielding_rating: parseInt(form.fielding_rating) || 5,
+      pitching_rating: parseInt(form.pitching_rating) || 5,
       can_pitch: form.can_pitch,
       can_catch: form.can_catch,
+      preferred_pitcher: form.preferred_pitcher,
       throws: form.throws,
       bats: form.bats,
       notes: form.notes || null,
@@ -271,7 +279,7 @@ export default function RosterPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-6">
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
                 <div className="flex items-center gap-2">
                   <Checkbox
                     id="can_pitch"
@@ -292,7 +300,31 @@ export default function RosterPage() {
                   />
                   <Label htmlFor="can_catch">Can Catch</Label>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="preferred_pitcher"
+                    checked={form.preferred_pitcher}
+                    onCheckedChange={(v) =>
+                      setForm({ ...form, preferred_pitcher: v === true })
+                    }
+                  />
+                  <Label htmlFor="preferred_pitcher">Preferred Pitcher</Label>
+                </div>
               </div>
+              {form.can_pitch && (
+                <div className="w-1/3">
+                  <Label>Pitch Rating (1-10)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={form.pitching_rating}
+                    onChange={(e) =>
+                      setForm({ ...form, pitching_rating: e.target.value })
+                    }
+                  />
+                </div>
+              )}
               <div>
                 <Label>Notes</Label>
                 <Input
@@ -326,6 +358,7 @@ export default function RosterPage() {
                   <TableHead className="w-16">Age</TableHead>
                   <TableHead className="w-16">Bat</TableHead>
                   <TableHead className="w-16">Field</TableHead>
+                  <TableHead className="w-16">Pitch</TableHead>
                   <TableHead>Roles</TableHead>
                   <TableHead className="w-24"></TableHead>
                 </TableRow>
@@ -357,10 +390,22 @@ export default function RosterPage() {
                       <RatingDots value={player.fielding_rating} />
                     </TableCell>
                     <TableCell>
+                      {player.can_pitch ? (
+                        <RatingDots value={player.pitching_rating} />
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <div className="flex gap-1">
                         {player.can_pitch && (
                           <Badge variant="secondary" className="text-xs">
                             P
+                          </Badge>
+                        )}
+                        {player.preferred_pitcher && (
+                          <Badge variant="default" className="text-xs">
+                            ACE
                           </Badge>
                         )}
                         {player.can_catch && (

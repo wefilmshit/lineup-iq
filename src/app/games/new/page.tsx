@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useTeam, usePlayers, useGames, useSeasonData } from "@/lib/hooks";
 import { generateLineup } from "@/lib/generate-lineup";
-import { Player, Position, ALL_POSITIONS, POSITION_LABELS } from "@/lib/types";
+import {
+  Player,
+  Position,
+  FIELD_POSITIONS,
+  LeagueRules,
+} from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +27,8 @@ export default function NewGamePage() {
   const {
     lineups: seasonLineups,
     battingOrders: seasonBattingOrders,
+    pitchingPlans: seasonPitchingPlans,
+    absences: seasonAbsences,
     loading: seasonLoading,
   } = useSeasonData(team?.id);
 
@@ -30,6 +37,7 @@ export default function NewGamePage() {
     new Date().toISOString().split("T")[0]
   );
   const [availableIds, setAvailableIds] = useState<Set<string>>(new Set());
+  const [absentIds, setAbsentIds] = useState<Set<string>>(new Set());
   const [generated, setGenerated] = useState<ReturnType<
     typeof generateLineup
   > | null>(null);
@@ -42,11 +50,12 @@ export default function NewGamePage() {
     setInitialized(true);
   }
 
-  const loading = teamLoading || playersLoading || gamesLoading || seasonLoading;
+  const loading =
+    teamLoading || playersLoading || gamesLoading || seasonLoading;
 
   const availablePlayers = useMemo(
-    () => players.filter((p) => availableIds.has(p.id)),
-    [players, availableIds]
+    () => players.filter((p) => availableIds.has(p.id) && !absentIds.has(p.id)),
+    [players, availableIds, absentIds]
   );
 
   const playerMap = useMemo(() => {
@@ -57,8 +66,34 @@ export default function NewGamePage() {
 
   const innings = team?.innings_per_game ?? 4;
 
+  // Get the last game's batting order + pitch counts for continuity
+  const lastGame = useMemo(() => {
+    if (!games || games.length === 0) return null;
+    return games[games.length - 1];
+  }, [games]);
+
+  const lastGameBattingOrder = useMemo(() => {
+    if (!lastGame) return [];
+    return seasonBattingOrders.filter((b) => b.game_id === lastGame.id);
+  }, [lastGame, seasonBattingOrders]);
+
+  const previousGamePitchCounts = useMemo(() => {
+    if (!lastGame) return [];
+    return seasonPitchingPlans.filter((p) => p.game_id === lastGame.id);
+  }, [lastGame, seasonPitchingPlans]);
+
   function togglePlayer(id: string) {
     setAvailableIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setGenerated(null);
+  }
+
+  function toggleAbsent(id: string) {
+    setAbsentIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -72,15 +107,72 @@ export default function NewGamePage() {
       toast.error("Need at least 2 available players");
       return;
     }
+    if (!team) return;
+
+    const rules: LeagueRules = {
+      maxPitchInningsPerGame: team.max_pitch_innings_per_game,
+      maxPitchesPerGame: team.max_pitches_per_game,
+      pitchRestThreshold: team.pitch_rest_threshold,
+      maxSamePositionInnings: team.max_same_position_innings,
+      requireInfieldInning: team.require_infield_inning,
+    };
+
+    const gameNumber = (games?.length ?? 0) + 1;
 
     const result = generateLineup({
       availablePlayers,
       seasonLineups,
       seasonBattingOrders,
+      seasonPitchingPlans,
+      seasonAbsences,
       innings,
+      rules,
+      lastGameBattingOrder,
+      previousGamePitchCounts,
+      gameNumber,
     });
     setGenerated(result);
     toast.success("Lineup generated!");
+  }
+
+  // Swap pitcher for a specific inning
+  function swapPitcher(inning: number, newPitcherId: string) {
+    if (!generated) return;
+
+    const newPositions = [...generated.positions];
+
+    // Find the current pitcher for this inning
+    const currentPitcherIdx = newPositions.findIndex(
+      (a) => a.inning === inning && a.position === "P"
+    );
+    // Find where the new pitcher is currently assigned this inning
+    const newPitcherIdx = newPositions.findIndex(
+      (a) => a.inning === inning && a.playerId === newPitcherId
+    );
+
+    if (currentPitcherIdx === -1 || newPitcherIdx === -1) return;
+
+    // Swap: old pitcher gets new pitcher's old position, new pitcher becomes P
+    const oldPitcherPos = newPositions[newPitcherIdx].position;
+    newPositions[currentPitcherIdx] = {
+      ...newPositions[currentPitcherIdx],
+      position: oldPitcherPos,
+    };
+    newPositions[newPitcherIdx] = {
+      ...newPositions[newPitcherIdx],
+      position: "P",
+    };
+
+    // Update pitching plan
+    const newPitchingPlan = newPositions
+      .filter((a) => a.position === "P")
+      .map((a) => ({ playerId: a.playerId, inning: a.inning }));
+
+    setGenerated({
+      ...generated,
+      positions: newPositions,
+      pitchingPlan: newPitchingPlan,
+    });
   }
 
   // Build the position grid from generated lineup
@@ -116,6 +208,7 @@ export default function NewGamePage() {
         date: gameDate || null,
         opponent: opponent || null,
         innings,
+        planned_innings: innings,
       })
       .select()
       .single();
@@ -124,6 +217,15 @@ export default function NewGamePage() {
       toast.error("Failed to save game");
       setSaving(false);
       return;
+    }
+
+    // Save absences
+    if (absentIds.size > 0) {
+      const absenceRows = Array.from(absentIds).map((pid) => ({
+        game_id: game.id,
+        player_id: pid,
+      }));
+      await supabase.from("game_absences").insert(absenceRows);
     }
 
     // Save lineups
@@ -232,7 +334,7 @@ export default function NewGamePage() {
         </CardContent>
       </Card>
 
-      {/* Available Players */}
+      {/* Available Players + Absences */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
@@ -241,25 +343,54 @@ export default function NewGamePage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {players.map((p) => (
-              <label
-                key={p.id}
-                className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
-                  availableIds.has(p.id)
-                    ? "bg-primary/5 border-primary/30"
-                    : "bg-muted/50 border-transparent opacity-50"
-                }`}
-              >
-                <Checkbox
-                  checked={availableIds.has(p.id)}
-                  onCheckedChange={() => togglePlayer(p.id)}
-                />
-                <span className="text-sm font-medium">
-                  #{p.jersey_number} {p.name}
-                </span>
-              </label>
-            ))}
+            {players.map((p) => {
+              const isAbsent = absentIds.has(p.id);
+              const isAvailable = availableIds.has(p.id) && !isAbsent;
+              return (
+                <div
+                  key={p.id}
+                  className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${
+                    isAbsent
+                      ? "bg-destructive/10 border-destructive/30"
+                      : isAvailable
+                      ? "bg-primary/5 border-primary/30"
+                      : "bg-muted/50 border-transparent opacity-50"
+                  }`}
+                >
+                  <Checkbox
+                    checked={isAvailable}
+                    onCheckedChange={() => {
+                      if (isAbsent) {
+                        toggleAbsent(p.id);
+                      } else {
+                        togglePlayer(p.id);
+                      }
+                    }}
+                  />
+                  <span className="text-sm font-medium flex-1">
+                    #{p.jersey_number} {p.name}
+                  </span>
+                  <button
+                    className={`text-xs px-1.5 py-0.5 rounded ${
+                      isAbsent
+                        ? "bg-destructive text-destructive-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-destructive/20"
+                    }`}
+                    onClick={() => toggleAbsent(p.id)}
+                    title="Mark absent"
+                  >
+                    {isAbsent ? "OUT" : "abs"}
+                  </button>
+                </div>
+              );
+            })}
           </div>
+          {absentIds.size > 0 && (
+            <p className="mt-2 text-sm text-destructive">
+              {absentIds.size} player{absentIds.size !== 1 ? "s" : ""} marked
+              absent (won&apos;t count against fairness)
+            </p>
+          )}
           <div className="mt-4">
             <Button onClick={handleGenerate} size="lg">
               Auto-Generate Lineup
@@ -353,6 +484,61 @@ export default function NewGamePage() {
             </CardContent>
           </Card>
 
+          {/* Editable Pitching Rotation */}
+          {generated.pitchingPlan.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">
+                  Pitching Rotation (editable)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {Array.from({ length: innings }, (_, i) => {
+                    const inning = i + 1;
+                    const pitcherAssignment = generated.positions.find(
+                      (a) => a.inning === inning && a.position === "P"
+                    );
+                    const fieldPlayersThisInning = generated.positions
+                      .filter(
+                        (a) =>
+                          a.inning === inning && a.position !== "BENCH"
+                      )
+                      .map((a) => a.playerId);
+
+                    return (
+                      <div key={inning}>
+                        <Label className="text-muted-foreground">
+                          Inning {inning}
+                        </Label>
+                        <select
+                          className="w-full text-sm border rounded px-2 py-1.5 bg-background mt-1"
+                          value={pitcherAssignment?.playerId ?? ""}
+                          onChange={(e) =>
+                            swapPitcher(inning, e.target.value)
+                          }
+                        >
+                          {fieldPlayersThisInning.map((pid) => (
+                            <option key={pid} value={pid}>
+                              {playerMap.get(pid)?.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+                {lastGameBattingOrder.length > 0 && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Batting order continues from last game. Pitchers on
+                    rest (threw &gt;{team?.pitch_rest_threshold} pitches
+                    last game) are excluded from pitching.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Batting Order */}
           <Card>
             <CardHeader>
@@ -381,29 +567,6 @@ export default function NewGamePage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Pitching Plan */}
-          {generated.pitchingPlan.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Pitching Rotation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-4">
-                  {generated.pitchingPlan.map((pp) => (
-                    <div key={pp.inning} className="text-sm">
-                      <span className="text-muted-foreground">
-                        Inn {pp.inning}:
-                      </span>{" "}
-                      <span className="font-medium">
-                        {playerMap.get(pp.playerId)?.name}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Save */}
           <div className="flex gap-4">

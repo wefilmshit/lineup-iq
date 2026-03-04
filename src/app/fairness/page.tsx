@@ -3,7 +3,11 @@
 import { useMemo } from "react";
 import { useTeam, usePlayers, useGames, useSeasonData } from "@/lib/hooks";
 import { computeSeasonStats } from "@/lib/generate-lineup";
-import { PlayerSeasonStats } from "@/lib/types";
+import {
+  PlayerSeasonStats,
+  Position,
+  FIELD_POSITIONS,
+} from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -14,18 +18,27 @@ export default function FairnessPage() {
   const {
     lineups,
     battingOrders,
+    pitchingPlans,
+    absences,
     loading: seasonLoading,
   } = useSeasonData(team?.id);
 
-  const loading = teamLoading || playersLoading || gamesLoading || seasonLoading;
+  const loading =
+    teamLoading || playersLoading || gamesLoading || seasonLoading;
 
   const stats = useMemo(() => {
     if (players.length === 0) return [];
-    const statsMap = computeSeasonStats(players, lineups, battingOrders);
+    const statsMap = computeSeasonStats(
+      players,
+      lineups,
+      battingOrders,
+      pitchingPlans,
+      absences
+    );
     return Array.from(statsMap.values()).sort(
       (a, b) => b.totalInnings - a.totalInnings
     );
-  }, [players, lineups, battingOrders]);
+  }, [players, lineups, battingOrders, pitchingPlans, absences]);
 
   if (loading) {
     return <div className="text-muted-foreground">Loading...</div>;
@@ -44,7 +57,9 @@ export default function FairnessPage() {
     );
   }
 
-  const maxInnings = Math.max(...stats.map((s) => s.totalInnings + s.benchInnings));
+  const maxInnings = Math.max(
+    ...stats.map((s) => s.totalInnings + s.benchInnings)
+  );
   const avgInnings =
     stats.reduce((sum, s) => sum + s.totalInnings, 0) / stats.length;
   const avgBench =
@@ -53,16 +68,18 @@ export default function FairnessPage() {
   // Check for fairness issues
   function getFairnessFlags(s: PlayerSeasonStats): string[] {
     const flags: string[] = [];
-    if (s.totalInnings < avgInnings - 2)
-      flags.push("Low playing time");
-    if (s.benchInnings > avgBench + 2)
-      flags.push("High bench time");
-    if (s.infieldInnings === 0 && s.totalInnings > 3)
-      flags.push("No infield");
+    if (s.totalInnings < avgInnings - 2) flags.push("Low playing time");
+    if (s.benchInnings > avgBench + 2) flags.push("High bench time");
+    if (s.infieldInnings === 0 && s.totalInnings > 3) flags.push("No infield");
     if (s.outfieldInnings === 0 && s.totalInnings > 3)
       flags.push("No outfield");
     return flags;
   }
+
+  const posColumns: (Position | "OUT")[] = [
+    ...FIELD_POSITIONS,
+    "BENCH",
+  ];
 
   return (
     <div className="space-y-6">
@@ -74,14 +91,13 @@ export default function FairnessPage() {
         </p>
       </div>
 
-      {/* Innings Played Chart */}
+      {/* Summary Bar Chart */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Total Innings Played</CardTitle>
+          <CardTitle className="text-lg">Innings Distribution</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {stats.map((s) => {
-            const total = s.totalInnings + s.benchInnings;
             const flags = getFairnessFlags(s);
             return (
               <div key={s.playerId}>
@@ -90,6 +106,11 @@ export default function FairnessPage() {
                     <span className="text-sm font-medium w-24 truncate">
                       {s.playerName}
                     </span>
+                    {s.gamesAbsent > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        {s.gamesAbsent} absent
+                      </Badge>
+                    )}
                     {flags.map((f) => (
                       <Badge
                         key={f}
@@ -102,6 +123,7 @@ export default function FairnessPage() {
                   </div>
                   <span className="text-sm text-muted-foreground">
                     {s.totalInnings} played / {s.benchInnings} bench
+                    {s.totalPitchCount > 0 && ` / ${s.totalPitchCount}p`}
                   </span>
                 </div>
                 <div className="flex h-6 rounded-md overflow-hidden bg-muted">
@@ -163,7 +185,7 @@ export default function FairnessPage() {
       </Card>
 
       {/* Legend */}
-      <div className="flex gap-4 text-sm">
+      <div className="flex gap-4 text-sm flex-wrap">
         <div className="flex items-center gap-1">
           <div className="w-3 h-3 rounded-sm bg-blue-500" />
           Infield
@@ -185,6 +207,66 @@ export default function FairnessPage() {
           Bench
         </div>
       </div>
+
+      {/* Per-Position Breakdown Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Position Breakdown</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-2 pr-2 sticky left-0 bg-background">
+                  Player
+                </th>
+                {posColumns.map((pos) => (
+                  <th
+                    key={pos}
+                    className="text-center py-2 px-1.5 font-medium text-xs"
+                  >
+                    {pos === "BENCH" ? "BN" : pos}
+                  </th>
+                ))}
+                <th className="text-center py-2 px-1.5 font-medium text-xs">
+                  ABS
+                </th>
+                <th className="text-center py-2 px-1.5 font-medium text-xs">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.map((s) => (
+                <tr key={s.playerId} className="border-b last:border-0">
+                  <td className="py-2 pr-2 font-medium sticky left-0 bg-background">
+                    {s.playerName}
+                  </td>
+                  {posColumns.map((pos) => {
+                    const count = s.positionCounts[pos as Position] || 0;
+                    return (
+                      <td
+                        key={pos}
+                        className={`text-center py-2 px-1.5 tabular-nums ${
+                          count === 0 ? "text-muted-foreground/30" : ""
+                        }`}
+                      >
+                        {count || "·"}
+                      </td>
+                    );
+                  })}
+                  <td className="text-center py-2 px-1.5 tabular-nums text-muted-foreground">
+                    {s.gamesAbsent || "·"}
+                  </td>
+                  <td className="text-center py-2 px-1.5 tabular-nums font-medium">
+                    {s.totalInnings}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
 
       {/* Batting Order Stats */}
       <Card>
@@ -221,50 +303,38 @@ export default function FairnessPage() {
         </CardContent>
       </Card>
 
-      {/* Detailed Stats Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Detailed Breakdown</CardTitle>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left py-2">Player</th>
-                <th className="text-center py-2">Games</th>
-                <th className="text-center py-2">Played</th>
-                <th className="text-center py-2">IF</th>
-                <th className="text-center py-2">OF</th>
-                <th className="text-center py-2">P</th>
-                <th className="text-center py-2">C</th>
-                <th className="text-center py-2">Bench</th>
-                <th className="text-center py-2">Avg Bat</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.map((s) => (
-                <tr key={s.playerId} className="border-b last:border-0">
-                  <td className="py-2 font-medium">{s.playerName}</td>
-                  <td className="text-center py-2">{s.gamesPlayed}</td>
-                  <td className="text-center py-2 font-medium">
-                    {s.totalInnings}
-                  </td>
-                  <td className="text-center py-2">{s.infieldInnings}</td>
-                  <td className="text-center py-2">{s.outfieldInnings}</td>
-                  <td className="text-center py-2">{s.pitcherInnings}</td>
-                  <td className="text-center py-2">{s.catcherInnings}</td>
-                  <td className="text-center py-2">{s.benchInnings}</td>
-                  <td className="text-center py-2">
-                    {s.avgBattingPosition > 0
-                      ? s.avgBattingPosition.toFixed(1)
-                      : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+      {/* Pitching Stats */}
+      {stats.some((s) => s.totalPitchCount > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Pitching Stats</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {stats
+                .filter((s) => s.pitcherInnings > 0)
+                .sort((a, b) => b.pitcherInnings - a.pitcherInnings)
+                .map((s) => (
+                  <div
+                    key={s.playerId}
+                    className="flex items-center justify-between py-1"
+                  >
+                    <span className="text-sm font-medium">{s.playerName}</span>
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <span>{s.pitcherInnings} inn</span>
+                      <span>{s.totalPitchCount} pitches</span>
+                      {s.pitcherInnings > 0 && (
+                        <span>
+                          {(s.totalPitchCount / s.pitcherInnings).toFixed(1)} p/inn
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
