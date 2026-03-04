@@ -268,38 +268,88 @@ export default function FairnessPage() {
         </CardContent>
       </Card>
 
-      {/* Batting Order Stats */}
+      {/* Batting Order Fairness */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">
-            Average Batting Order Position
-          </CardTitle>
+          <CardTitle className="text-lg">Batting Order Fairness</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {[...stats]
-              .filter((s) => s.avgBattingPosition > 0)
-              .sort((a, b) => a.avgBattingPosition - b.avgBattingPosition)
-              .map((s) => (
-                <div
-                  key={s.playerId}
-                  className="flex items-center justify-between"
-                >
-                  <span className="text-sm font-medium">{s.playerName}</span>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="h-4 bg-primary/20 rounded"
-                      style={{
-                        width: `${(s.avgBattingPosition / players.length) * 200}px`,
-                      }}
-                    />
-                    <span className="text-sm text-muted-foreground w-8 text-right">
-                      {s.avgBattingPosition.toFixed(1)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-          </div>
+        <CardContent className="overflow-x-auto">
+          {(() => {
+            const maxSlot = Math.max(
+              ...stats.map((s) =>
+                Math.max(...Object.keys(s.battingSlotCounts).map(Number), 0)
+              ),
+              players.length
+            );
+            const slots = Array.from({ length: maxSlot }, (_, i) => i + 1);
+            // Average count per slot across all players for color coding
+            const slotAvgs = new Map<number, number>();
+            for (const slot of slots) {
+              const total = stats.reduce(
+                (sum, s) => sum + (s.battingSlotCounts[slot] || 0),
+                0
+              );
+              slotAvgs.set(slot, total / stats.length);
+            }
+            return (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 pr-2 sticky left-0 bg-background">
+                      Player
+                    </th>
+                    {slots.map((slot) => (
+                      <th
+                        key={slot}
+                        className="text-center py-2 px-1.5 font-medium text-xs"
+                      >
+                        {slot}
+                      </th>
+                    ))}
+                    <th className="text-center py-2 px-1.5 font-medium text-xs">
+                      Avg
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...stats]
+                    .filter((s) => s.avgBattingPosition > 0)
+                    .sort(
+                      (a, b) => a.avgBattingPosition - b.avgBattingPosition
+                    )
+                    .map((s) => (
+                      <tr key={s.playerId} className="border-b last:border-0">
+                        <td className="py-2 pr-2 font-medium sticky left-0 bg-background">
+                          {s.playerName}
+                        </td>
+                        {slots.map((slot) => {
+                          const count = s.battingSlotCounts[slot] || 0;
+                          const avg = slotAvgs.get(slot) || 0;
+                          const isHigh = count > 0 && count > avg + 1;
+                          return (
+                            <td
+                              key={slot}
+                              className={`text-center py-2 px-1.5 tabular-nums ${
+                                count === 0
+                                  ? "text-muted-foreground/30"
+                                  : isHigh
+                                  ? "text-orange-600 font-bold"
+                                  : ""
+                              }`}
+                            >
+                              {count || "\u00b7"}
+                            </td>
+                          );
+                        })}
+                        <td className="text-center py-2 px-1.5 tabular-nums font-medium text-muted-foreground">
+                          {s.avgBattingPosition.toFixed(1)}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            );
+          })()}
         </CardContent>
       </Card>
 

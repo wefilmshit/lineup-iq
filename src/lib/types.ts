@@ -88,6 +88,7 @@ export interface Game {
   planned_innings: number | null;
   result: string | null;
   notes: string | null;
+  home_away: "home" | "visitor" | null;
   created_at: string;
 }
 
@@ -191,6 +192,7 @@ export interface PlayerSeasonStats {
   gamesPlayed: number;
   gamesAbsent: number;
   avgBattingPosition: number;
+  battingSlotCounts: Record<number, number>;
   totalPitchCount: number;
 }
 

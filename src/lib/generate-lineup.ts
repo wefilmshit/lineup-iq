@@ -59,6 +59,7 @@ function computeSeasonStats(
       gamesPlayed: 0,
       gamesAbsent: 0,
       avgBattingPosition: 0,
+      battingSlotCounts: {},
       totalPitchCount: 0,
     });
   }
@@ -122,6 +123,9 @@ function computeSeasonStats(
     if (s) {
       s.avgBattingPosition =
         positions.reduce((a, b) => a + b, 0) / positions.length;
+      for (const pos of positions) {
+        s.battingSlotCounts[pos] = (s.battingSlotCounts[pos] || 0) + 1;
+      }
     }
   }
 

@@ -25,6 +25,7 @@ export default function LogGamePage() {
   const [actualInnings, setActualInnings] = useState(0);
   const [inningsInitialized, setInningsInitialized] = useState(false);
 
+  const [homeAway, setHomeAway] = useState<"home" | "visitor" | null>(null);
   // Absent player tracking
   const [absentIds, setAbsentIds] = useState<Set<string>>(new Set());
 
@@ -168,6 +169,7 @@ export default function LogGamePage() {
         innings: actualInnings,
         planned_innings: plannedInnings,
         result: result || null,
+        home_away: homeAway,
       })
       .select()
       .single();
@@ -360,6 +362,24 @@ export default function LogGamePage() {
                   setActualInnings(parseInt(e.target.value) || 4)
                 }
               />
+            </div>
+            <div>
+              <Label>Home / Visitor</Label>
+              <div className="flex gap-1 mt-1">
+                {(["home", "visitor"] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setHomeAway(homeAway === v ? null : v)}
+                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                      homeAway === v
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background border-input hover:bg-muted"
+                    }`}
+                  >
+                    {v === "home" ? "Home" : "Visitor"}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </CardContent>

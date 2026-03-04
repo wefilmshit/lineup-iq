@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import {
   Game,
@@ -230,11 +231,27 @@ export default function GameDayPage() {
             Game {game.game_number}
             {game.opponent ? ` vs ${game.opponent}` : ""}
           </h1>
-          <p className="text-muted-foreground">{game.date}</p>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <span>{game.date}</span>
+            {game.home_away && (
+              <Badge variant="outline" className="text-xs">
+                {game.home_away === "home" ? "Home" : "Visitor"}
+              </Badge>
+            )}
+          </div>
         </div>
-        {game.result && (
-          <Badge className="text-lg px-4 py-1">{game.result}</Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {game.result && (
+            <Badge className="text-lg px-4 py-1">{game.result}</Badge>
+          )}
+          {lineups.length > 0 && (
+            <Link href={`/games/${gameId}/print`} target="_blank">
+              <Button variant="outline" size="sm">
+                Print Lineup
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Absent Players */}

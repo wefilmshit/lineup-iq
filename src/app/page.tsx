@@ -396,6 +396,11 @@ export default function Home() {
                         <span className="text-sm text-muted-foreground">
                           {game.date}
                         </span>
+                        {game.home_away && (
+                          <Badge variant="outline" className="text-xs">
+                            {game.home_away === "home" ? "H" : "V"}
+                          </Badge>
+                        )}
                       </div>
                       {game.result && (
                         <Badge

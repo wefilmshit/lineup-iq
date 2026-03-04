@@ -41,6 +41,7 @@ export default function NewGamePage() {
   const [generated, setGenerated] = useState<ReturnType<
     typeof generateLineup
   > | null>(null);
+  const [homeAway, setHomeAway] = useState<"home" | "visitor" | null>(null);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
@@ -209,6 +210,7 @@ export default function NewGamePage() {
         opponent: opponent || null,
         innings,
         planned_innings: innings,
+        home_away: homeAway,
       })
       .select()
       .single();
@@ -313,7 +315,7 @@ export default function NewGamePage() {
           <CardTitle className="text-lg">Game Info</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div>
               <Label>Opponent</Label>
               <Input
@@ -329,6 +331,24 @@ export default function NewGamePage() {
                 value={gameDate}
                 onChange={(e) => setGameDate(e.target.value)}
               />
+            </div>
+            <div>
+              <Label>Home / Visitor</Label>
+              <div className="flex gap-1 mt-1">
+                {(["home", "visitor"] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setHomeAway(homeAway === v ? null : v)}
+                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                      homeAway === v
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background border-input hover:bg-muted"
+                    }`}
+                  >
+                    {v === "home" ? "Home" : "Visitor"}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </CardContent>
