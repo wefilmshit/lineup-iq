@@ -506,7 +506,7 @@ export default function GameDayPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
+          <div className="space-y-4">
             {battingOrder.map((b) => {
               const player = playerMap.get(b.player_id);
               const playerAtBats = atBats.filter(
@@ -515,40 +515,53 @@ export default function GameDayPage() {
               return (
                 <div
                   key={b.player_id}
-                  className="flex items-center gap-3 py-1"
+                  className="p-3 rounded-lg border"
                 >
-                  <span className="text-sm font-bold text-muted-foreground w-5 text-right">
-                    {b.order_position}
-                  </span>
-                  <span className="text-sm font-medium w-28 truncate">
-                    {player?.name}
-                  </span>
-                  {/* At-bat results */}
-                  <div className="flex gap-1 flex-1">
-                    {playerAtBats.map((ab) => (
-                      <Badge
-                        key={ab.id}
-                        variant={ab.result === "OUT" ? "secondary" : "default"}
-                        className="text-xs"
-                      >
-                        {ab.result}
-                      </Badge>
-                    ))}
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="text-sm text-muted-foreground">
+                        #{b.order_position}
+                      </div>
+                      <div className="text-xl font-bold">
+                        {player?.name}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold tabular-nums">
+                        {playerAtBats.filter((ab) => ab.result !== "OUT").length}
+                        <span className="text-muted-foreground font-normal">/</span>
+                        {playerAtBats.length}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        hits / AB
+                      </div>
+                    </div>
                   </div>
+                  {/* At-bat history */}
+                  {playerAtBats.length > 0 && (
+                    <div className="flex gap-1.5 mb-3 flex-wrap">
+                      {playerAtBats.map((ab) => (
+                        <Badge
+                          key={ab.id}
+                          variant={ab.result === "OUT" ? "secondary" : "default"}
+                        >
+                          {ab.result}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                   {/* Record buttons */}
-                  <div className="flex gap-1">
+                  <div className="flex gap-2">
                     {AT_BAT_OPTIONS.map((result) => (
-                      <button
+                      <Button
                         key={result}
-                        className={`text-xs px-2 py-1 rounded border ${
-                          result === "OUT"
-                            ? "hover:bg-muted"
-                            : "hover:bg-primary/10"
-                        }`}
+                        variant={result === "OUT" ? "outline" : "default"}
+                        size="lg"
+                        className="flex-1 text-base font-bold"
                         onClick={() => recordAtBat(b.player_id, result)}
                       >
                         {result}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -556,7 +569,7 @@ export default function GameDayPage() {
             })}
           </div>
           {atBats.length > 0 && (
-            <div className="mt-3 pt-3 border-t">
+            <div className="mt-4 pt-3 border-t">
               <Button
                 variant="ghost"
                 size="sm"
