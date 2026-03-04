@@ -89,6 +89,33 @@ export default function GameDayPage() {
     loadData();
   }, [loadData]);
 
+  const currentPitcherPlan = pitchingPlan.find(
+    (pp) => pp.inning === currentInning
+  );
+
+  // Total pitch count for the current pitcher across all their innings
+  const currentPitcherTotalPitches = useMemo(() => {
+    if (!currentPitcherPlan) return 0;
+    return pitchingPlan
+      .filter((pp) => pp.player_id === currentPitcherPlan.player_id)
+      .reduce((sum, pp) => sum + pp.pitch_count, 0);
+  }, [currentPitcherPlan, pitchingPlan]);
+
+  // Compute box score
+  const boxScore = useMemo(() => {
+    const hits = atBats.filter((ab) => ab.result !== "OUT");
+    const outs = atBats.filter((ab) => ab.result === "OUT");
+    return {
+      total: atBats.length,
+      hits: hits.length,
+      outs: outs.length,
+      singles: atBats.filter((ab) => ab.result === "1B").length,
+      doubles: atBats.filter((ab) => ab.result === "2B").length,
+      triples: atBats.filter((ab) => ab.result === "3B").length,
+      homeRuns: atBats.filter((ab) => ab.result === "HR").length,
+    };
+  }, [atBats]);
+
   if (loading || !game) {
     return <div className="text-muted-foreground">Loading...</div>;
   }
@@ -112,18 +139,6 @@ export default function GameDayPage() {
       .map((l) => playerMap.get(l.player_id))
       .filter(Boolean) as Player[];
   }
-
-  const currentPitcherPlan = pitchingPlan.find(
-    (pp) => pp.inning === currentInning
-  );
-
-  // Total pitch count for the current pitcher across all their innings
-  const currentPitcherTotalPitches = useMemo(() => {
-    if (!currentPitcherPlan) return 0;
-    return pitchingPlan
-      .filter((pp) => pp.player_id === currentPitcherPlan.player_id)
-      .reduce((sum, pp) => sum + pp.pitch_count, 0);
-  }, [currentPitcherPlan, pitchingPlan]);
 
   async function updatePitchCount(planId: string, delta: number) {
     const plan = pitchingPlan.find((pp) => pp.id === planId);
@@ -182,21 +197,6 @@ export default function GameDayPage() {
     setGame({ ...game!, innings: newInnings });
     toast.success(`Updated to ${newInnings} innings`);
   }
-
-  // Compute box score
-  const boxScore = useMemo(() => {
-    const hits = atBats.filter((ab) => ab.result !== "OUT");
-    const outs = atBats.filter((ab) => ab.result === "OUT");
-    return {
-      total: atBats.length,
-      hits: hits.length,
-      outs: outs.length,
-      singles: atBats.filter((ab) => ab.result === "1B").length,
-      doubles: atBats.filter((ab) => ab.result === "2B").length,
-      triples: atBats.filter((ab) => ab.result === "3B").length,
-      homeRuns: atBats.filter((ab) => ab.result === "HR").length,
-    };
-  }, [atBats]);
 
   const fieldPositions: Position[] = [
     "P", "C", "1B", "2B", "SS", "3B", "RF", "RCF", "LCF", "LF",
