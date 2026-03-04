@@ -184,6 +184,16 @@ export default function GameDayPage() {
     setAtBats((prev) => prev.slice(0, -1));
   }
 
+  async function toggleFinalized() {
+    const newVal = !game!.is_finalized;
+    await supabase
+      .from("games")
+      .update({ is_finalized: newVal })
+      .eq("id", game!.id);
+    setGame({ ...game!, is_finalized: newVal });
+    toast.success(newVal ? "Game finalized" : "Game un-finalized");
+  }
+
   async function saveResult(result: string) {
     await supabase.from("games").update({ result }).eq("id", game!.id);
     setGame({ ...game!, result });
@@ -244,6 +254,11 @@ export default function GameDayPage() {
           {game.result && (
             <Badge className="text-lg px-4 py-1">{game.result}</Badge>
           )}
+          {game.is_finalized && (
+            <Badge variant="outline" className="text-xs text-green-600 border-green-300">
+              Final
+            </Badge>
+          )}
           {lineups.length > 0 && (
             <Link href={`/games/${gameId}/print`} target="_blank">
               <Button variant="outline" size="sm">
@@ -251,6 +266,13 @@ export default function GameDayPage() {
               </Button>
             </Link>
           )}
+          <Button
+            variant={game.is_finalized ? "ghost" : "default"}
+            size="sm"
+            onClick={toggleFinalized}
+          >
+            {game.is_finalized ? "Un-finalize" : "Finalize Game"}
+          </Button>
         </div>
       </div>
 

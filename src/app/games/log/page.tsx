@@ -170,6 +170,7 @@ export default function LogGamePage() {
         planned_innings: plannedInnings,
         result: result || null,
         home_away: homeAway,
+        is_finalized: true,
       })
       .select()
       .single();

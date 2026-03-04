@@ -104,7 +104,7 @@ export function useGames(teamId: string | undefined) {
   return { games, loading, refresh };
 }
 
-export function useSeasonData(teamId: string | undefined) {
+export function useSeasonData(teamId: string | undefined, finalizedOnly = false) {
   const [lineups, setLineups] = useState<GameLineup[]>([]);
   const [battingOrders, setBattingOrders] = useState<BattingOrder[]>([]);
   const [pitchingPlans, setPitchingPlans] = useState<PitchingPlan[]>([]);
@@ -115,12 +115,20 @@ export function useSeasonData(teamId: string | undefined) {
     if (!teamId) return;
 
     // Get all games for this team (need innings for filtering)
-    const { data: games } = await supabase
+    let query = supabase
       .from("games")
       .select("*")
       .eq("team_id", teamId);
+    if (finalizedOnly) {
+      query = query.eq("is_finalized", true);
+    }
+    const { data: games } = await query;
 
     if (!games || games.length === 0) {
+      setLineups([]);
+      setBattingOrders([]);
+      setPitchingPlans([]);
+      setAbsences([]);
       setLoading(false);
       return;
     }
@@ -156,7 +164,7 @@ export function useSeasonData(teamId: string | undefined) {
     setPitchingPlans(filteredPitching);
     if (absencesRes.data) setAbsences(absencesRes.data as GameAbsence[]);
     setLoading(false);
-  }, [teamId]);
+  }, [teamId, finalizedOnly]);
 
   useEffect(() => {
     refresh();

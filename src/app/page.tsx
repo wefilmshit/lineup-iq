@@ -22,7 +22,7 @@ export default function Home() {
     pitchingPlans,
     absences,
     loading: seasonLoading,
-  } = useSeasonData(team?.id);
+  } = useSeasonData(team?.id, true);
 
   const [editingTeam, setEditingTeam] = useState(false);
   const [teamName, setTeamName] = useState("");
@@ -399,6 +399,11 @@ export default function Home() {
                         {game.home_away && (
                           <Badge variant="outline" className="text-xs">
                             {game.home_away === "home" ? "H" : "V"}
+                          </Badge>
+                        )}
+                        {!game.is_finalized && (
+                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
+                            Draft
                           </Badge>
                         )}
                       </div>

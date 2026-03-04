@@ -89,6 +89,7 @@ export interface Game {
   result: string | null;
   notes: string | null;
   home_away: "home" | "visitor" | null;
+  is_finalized: boolean;
   created_at: string;
 }
 

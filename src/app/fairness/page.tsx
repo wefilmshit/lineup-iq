@@ -15,13 +15,17 @@ export default function FairnessPage() {
   const { team, loading: teamLoading } = useTeam();
   const { players, loading: playersLoading } = usePlayers(team?.id);
   const { games, loading: gamesLoading } = useGames(team?.id);
+  const finalizedGames = useMemo(
+    () => games.filter((g) => g.is_finalized),
+    [games]
+  );
   const {
     lineups,
     battingOrders,
     pitchingPlans,
     absences,
     loading: seasonLoading,
-  } = useSeasonData(team?.id);
+  } = useSeasonData(team?.id, true);
 
   const loading =
     teamLoading || playersLoading || gamesLoading || seasonLoading;
@@ -44,13 +48,15 @@ export default function FairnessPage() {
     return <div className="text-muted-foreground">Loading...</div>;
   }
 
-  if (stats.length === 0 || games.length === 0) {
+  if (stats.length === 0 || finalizedGames.length === 0) {
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-bold">Fairness Dashboard</h1>
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            Play some games first to see fairness stats.
+            {games.length > 0 && finalizedGames.length === 0
+              ? "Finalize some games first to see fairness stats. You can finalize a game from its detail page."
+              : "Play some games first to see fairness stats."}
           </CardContent>
         </Card>
       </div>
@@ -86,7 +92,7 @@ export default function FairnessPage() {
       <div>
         <h1 className="text-2xl font-bold">Fairness Dashboard</h1>
         <p className="text-muted-foreground">
-          {games.length} game{games.length !== 1 ? "s" : ""} played — Avg{" "}
+          {finalizedGames.length} finalized game{finalizedGames.length !== 1 ? "s" : ""} — Avg{" "}
           {avgInnings.toFixed(1)} innings per player
         </p>
       </div>
