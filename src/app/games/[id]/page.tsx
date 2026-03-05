@@ -490,94 +490,70 @@ export default function GameDayPage() {
       {/* Hit Tracker */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Hit Tracker</CardTitle>
-            {boxScore.total > 0 && (
-              <div className="flex items-center gap-3 text-sm">
-                <span>
-                  {boxScore.hits}H / {boxScore.outs}O
-                </span>
-                {boxScore.singles > 0 && <Badge variant="outline">{boxScore.singles} 1B</Badge>}
-                {boxScore.doubles > 0 && <Badge variant="outline">{boxScore.doubles} 2B</Badge>}
-                {boxScore.triples > 0 && <Badge variant="outline">{boxScore.triples} 3B</Badge>}
-                {boxScore.homeRuns > 0 && <Badge variant="default">{boxScore.homeRuns} HR</Badge>}
-              </div>
-            )}
-          </div>
+          <CardTitle className="text-lg">Hit Tracker</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {battingOrder.map((b) => {
               const player = playerMap.get(b.player_id);
-              const playerAtBats = atBats.filter(
+              const playerHits = atBats.filter(
                 (ab) => ab.player_id === b.player_id
-              );
+              ).length;
               return (
                 <div
                   key={b.player_id}
-                  className="p-3 rounded-lg border"
+                  className="flex items-center gap-6"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <div className="text-sm text-muted-foreground">
-                        #{b.order_position}
-                      </div>
-                      <div className="text-xl font-bold">
-                        {player?.name}
-                      </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-muted-foreground">
+                      #{b.order_position}
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold tabular-nums">
-                        {playerAtBats.filter((ab) => ab.result !== "OUT").length}
-                        <span className="text-muted-foreground font-normal">/</span>
-                        {playerAtBats.length}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        hits / AB
-                      </div>
+                    <div className="text-xl font-bold truncate">
+                      {player?.name}
                     </div>
                   </div>
-                  {/* At-bat history */}
-                  {playerAtBats.length > 0 && (
-                    <div className="flex gap-1.5 mb-3 flex-wrap">
-                      {playerAtBats.map((ab) => (
-                        <Badge
-                          key={ab.id}
-                          variant={ab.result === "OUT" ? "secondary" : "default"}
-                        >
-                          {ab.result}
-                        </Badge>
-                      ))}
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-14 h-14 text-2xl"
+                      onClick={() => {
+                        const last = atBats
+                          .filter((ab) => ab.player_id === b.player_id)
+                          .pop();
+                        if (last) {
+                          supabase.from("at_bats").delete().eq("id", last.id).then(() => {
+                            setAtBats((prev) => prev.filter((ab) => ab.id !== last.id));
+                          });
+                        }
+                      }}
+                    >
+                      -
+                    </Button>
+                    <div className="text-center w-12">
+                      <div className="text-4xl font-bold tabular-nums">
+                        {playerHits}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        hits
+                      </div>
                     </div>
-                  )}
-                  {/* Record buttons */}
-                  <div className="flex gap-2">
-                    {AT_BAT_OPTIONS.map((result) => (
-                      <Button
-                        key={result}
-                        variant={result === "OUT" ? "outline" : "default"}
-                        size="lg"
-                        className="flex-1 text-base font-bold"
-                        onClick={() => recordAtBat(b.player_id, result)}
-                      >
-                        {result}
-                      </Button>
-                    ))}
+                    <Button
+                      variant="default"
+                      size="lg"
+                      className="w-14 h-14 text-2xl"
+                      onClick={() => recordAtBat(b.player_id, "1B")}
+                    >
+                      +
+                    </Button>
                   </div>
                 </div>
               );
             })}
           </div>
           {atBats.length > 0 && (
-            <div className="mt-4 pt-3 border-t">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive"
-                onClick={removeLastAtBat}
-              >
-                Undo Last At-Bat
-              </Button>
+            <div className="mt-4 pt-3 border-t text-center text-sm text-muted-foreground">
+              Team total: {atBats.length} hits
             </div>
           )}
         </CardContent>

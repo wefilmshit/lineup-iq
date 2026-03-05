@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
@@ -13,11 +13,12 @@ import {
   Position,
   FIELD_POSITIONS,
 } from "@/lib/types";
-import { Button } from "@/components/ui/button";
+import { toPng } from "html-to-image";
 
 export default function PrintLineupPage() {
   const params = useParams();
   const gameId = params.id as string;
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const [game, setGame] = useState<Game | null>(null);
   const [teamName, setTeamName] = useState("");
@@ -27,6 +28,7 @@ export default function PrintLineupPage() {
   const [pitchingPlan, setPitchingPlan] = useState<PitchingPlan[]>([]);
   const [absences, setAbsences] = useState<GameAbsence[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sharing, setSharing] = useState(false);
 
   const playerMap = useMemo(() => {
     const m = new Map<string, Player>();
@@ -80,6 +82,40 @@ export default function PrintLineupPage() {
     loadData();
   }, [loadData]);
 
+  async function shareAsImage() {
+    if (!contentRef.current) return;
+    setSharing(true);
+    try {
+      const dataUrl = await toPng(contentRef.current, {
+        backgroundColor: "#ffffff",
+        pixelRatio: 2,
+      });
+
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File(
+        [blob],
+        `lineup-game${game?.game_number ?? ""}.png`,
+        { type: "image/png" }
+      );
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Game ${game?.game_number} Lineup`,
+        });
+      } else {
+        const link = document.createElement("a");
+        link.download = file.name;
+        link.href = dataUrl;
+        link.click();
+      }
+    } catch {
+      // user cancelled share
+    } finally {
+      setSharing(false);
+    }
+  }
+
   if (loading || !game) {
     return <div className="p-8 text-gray-500">Loading...</div>;
   }
@@ -115,124 +151,271 @@ export default function PrintLineupPage() {
       .filter(Boolean) as Player[];
   }
 
+  function playerLabel(p: Player | undefined): string {
+    if (!p) return "?";
+    return p.jersey_number ? `${p.name} #${p.jersey_number}` : p.name;
+  }
+
+  function playerNameShort(p: Player | undefined): string {
+    if (!p) return "";
+    return p.name;
+  }
+
   const homeVisitor = game.home_away
     ? game.home_away === "home"
-      ? "Home"
-      : "Visitor"
+      ? "HOME"
+      : "VISITOR"
     : "";
-  const title = `${teamName}: Game ${game.game_number}${
-    homeVisitor ? ` (${homeVisitor})` : ""
-  }${game.opponent ? ` vs ${game.opponent}` : ""}`;
-  const subtitle = game.date || "";
 
   return (
-    <div className="print-page">
+    <div className="print-lineup-page">
       <style>{`
-        .print-page {
+        .print-lineup-page {
           font-family: system-ui, -apple-system, sans-serif;
-          font-size: 11px;
-          color: #000;
-          padding: 16px;
-          max-width: 1100px;
+          color: #1a1a1a;
+          padding: 12px;
+          max-width: 680px;
           margin: 0 auto;
         }
-        .print-header {
+
+        /* Action buttons */
+        .print-actions {
+          display: flex;
+          gap: 8px;
+          justify-content: center;
+          margin-bottom: 16px;
+        }
+        .print-actions button {
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 14px;
+          border: none;
+          cursor: pointer;
+          transition: opacity 0.15s;
+        }
+        .print-actions button:active { opacity: 0.7; }
+        .btn-share {
+          background: #1e40af;
+          color: white;
+        }
+        .btn-print {
+          background: #e5e7eb;
+          color: #374151;
+        }
+
+        /* Baseball header */
+        .lineup-header {
           text-align: center;
-          margin-bottom: 8px;
-          border-bottom: 2px solid #000;
-          padding-bottom: 4px;
+          margin-bottom: 10px;
+          padding-bottom: 8px;
+          position: relative;
         }
-        .print-header h1 {
-          font-size: 16px;
-          font-weight: 700;
-          margin: 0;
+        .lineup-header::after {
+          content: '';
+          display: block;
+          margin: 8px auto 0;
+          width: 80%;
+          height: 3px;
+          background: linear-gradient(90deg, transparent, #dc2626, transparent);
         }
-        .print-header p {
+        .team-name {
+          font-size: 18px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #1e293b;
+        }
+        .game-info {
           font-size: 12px;
-          color: #666;
-          margin: 2px 0 0;
+          color: #64748b;
+          margin-top: 2px;
         }
-        .print-section {
-          margin-bottom: 12px;
+        .game-info .hv-badge {
+          display: inline-block;
+          background: #f1f5f9;
+          border: 1px solid #cbd5e1;
+          border-radius: 3px;
+          padding: 0 4px;
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.5px;
+          margin-left: 4px;
+          vertical-align: middle;
         }
-        .print-section h2 {
-          font-size: 13px;
-          font-weight: 700;
-          margin: 0 0 4px;
-          border-bottom: 1px solid #ccc;
-          padding-bottom: 2px;
+        .section-label {
+          font-size: 11px;
+          font-weight: 600;
+          color: #94a3b8;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-top: 2px;
         }
-        .print-table {
+
+        /* Baseball seam divider */
+        .seam-divider {
+          position: relative;
+          height: 20px;
+          margin: 14px 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .seam-divider::before {
+          content: '';
+          position: absolute;
+          width: 100%;
+          height: 1px;
+          background: #e2e8f0;
+        }
+        .seam-diamond {
+          position: relative;
+          z-index: 1;
+          width: 10px;
+          height: 10px;
+          background: white;
+          border: 2px solid #dc2626;
+          transform: rotate(45deg);
+        }
+
+        /* Tables */
+        .lineup-table {
           width: 100%;
           border-collapse: collapse;
+          font-size: 11px;
+          table-layout: fixed;
         }
-        .print-table th,
-        .print-table td {
-          border: 1px solid #ccc;
-          padding: 3px 6px;
+        .lineup-table th,
+        .lineup-table td {
+          border: 1px solid #e2e8f0;
+          padding: 4px 3px;
           text-align: center;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .lineup-table th {
+          background: #f8fafc;
+          font-weight: 700;
+          font-size: 10px;
+          color: #475569;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+        .lineup-table td.player-col {
+          text-align: left;
+          font-weight: 600;
+          padding-left: 6px;
           white-space: nowrap;
         }
-        .print-table th {
-          background: #f3f3f3;
-          font-weight: 600;
-          font-size: 10px;
-        }
-        .print-table td.player-name {
+        .lineup-table td.pos-col {
           text-align: left;
-          font-weight: 500;
+          font-weight: 700;
+          padding-left: 6px;
+          color: #475569;
         }
-        .print-table td.pos-pitcher {
-          background: #f0e6ff;
-          font-weight: 600;
+        .lineup-table td.pitcher-cell {
+          background: #fef2f2;
+          color: #dc2626;
+          font-weight: 700;
         }
-        .print-table td.pos-bench {
-          background: #f5f5f5;
-          color: #999;
+        .lineup-table td.bench-cell {
+          background: #f8fafc;
+          color: #94a3b8;
+          font-style: italic;
         }
-        .divider {
-          border-top: 2px dashed #999;
-          margin: 16px 0;
-          page-break-before: avoid;
+        .lineup-table .order-num {
+          font-weight: 800;
+          color: #64748b;
         }
-        .absent-list {
+
+        /* Position table - auto-fit with first name */
+        .pos-table td.name-cell {
           font-size: 10px;
-          color: #999;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .pos-table .bench-names {
+          font-size: 9px;
+          color: #94a3b8;
+          font-style: italic;
+        }
+
+        /* Pitching line */
+        .pitching-line {
+          font-size: 10px;
+          color: #64748b;
+          margin-top: 6px;
+          padding: 4px 6px;
+          background: #fef2f2;
+          border-radius: 4px;
+          border-left: 3px solid #dc2626;
+        }
+        .pitching-line strong {
+          color: #1e293b;
+        }
+
+        /* Absent */
+        .absent-line {
+          font-size: 10px;
+          color: #94a3b8;
           margin-top: 4px;
         }
-        .no-print {
-          margin-bottom: 16px;
+
+        /* Watermark */
+        .watermark {
           text-align: center;
+          font-size: 9px;
+          color: #cbd5e1;
+          margin-top: 10px;
+          letter-spacing: 0.5px;
         }
+
         @media print {
-          .no-print { display: none; }
-          .print-page { padding: 0; }
+          .print-actions { display: none; }
+          .print-lineup-page { padding: 0; max-width: none; }
           @page {
-            size: landscape;
+            size: portrait;
             margin: 0.4in;
           }
         }
       `}</style>
 
-      <div className="no-print">
-        <Button onClick={() => window.print()}>Print This Page</Button>
+      <div className="print-actions">
+        <button
+          className="btn-share"
+          onClick={shareAsImage}
+          disabled={sharing}
+        >
+          {sharing ? "Generating..." : "Share as Image"}
+        </button>
+        <button className="btn-print" onClick={() => window.print()}>
+          Print
+        </button>
       </div>
 
-      {/* ===== TOP HALF: By Batting Order ===== */}
-      <div className="print-header">
-        <h1>{title}</h1>
-        <p>{subtitle} — Lineup by Batting Order</p>
-      </div>
+      {/* ===== CAPTURABLE CONTENT ===== */}
+      <div ref={contentRef}>
 
-      <div className="print-section">
-        <table className="print-table">
+        {/* ===== TOP: By Batting Order ===== */}
+        <div className="lineup-header">
+          <div className="team-name">{teamName}</div>
+          <div className="game-info">
+            Game {game.game_number}
+            {game.opponent ? ` vs ${game.opponent}` : ""}
+            {game.date ? ` \u2022 ${game.date}` : ""}
+            {homeVisitor && <span className="hv-badge">{homeVisitor}</span>}
+          </div>
+          <div className="section-label">Batting Order</div>
+        </div>
+
+        <table className="lineup-table">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Player</th>
-              <th>Jersey</th>
+              <th style={{ width: "28px" }}>#</th>
+              <th style={{ width: "auto", textAlign: "left", paddingLeft: 6 }}>Player</th>
               {inningCols.map((inn) => (
-                <th key={inn}>Inn {inn}</th>
+                <th key={inn} style={{ width: "44px" }}>Inn {inn}</th>
               ))}
             </tr>
           </thead>
@@ -241,9 +424,8 @@ export default function PrintLineupPage() {
               const player = playerMap.get(b.player_id);
               return (
                 <tr key={b.player_id}>
-                  <td style={{ fontWeight: 700 }}>{b.order_position}</td>
-                  <td className="player-name">{player?.name ?? "?"}</td>
-                  <td>{player?.jersey_number ?? ""}</td>
+                  <td className="order-num">{b.order_position}</td>
+                  <td className="player-col">{playerLabel(player)}</td>
                   {inningCols.map((inn) => {
                     const pos = getPlayerPosition(b.player_id, inn);
                     const isPitcher = pos === "P";
@@ -253,9 +435,9 @@ export default function PrintLineupPage() {
                         key={inn}
                         className={
                           isPitcher
-                            ? "pos-pitcher"
+                            ? "pitcher-cell"
                             : isBench
-                            ? "pos-bench"
+                            ? "bench-cell"
                             : ""
                         }
                       >
@@ -268,42 +450,49 @@ export default function PrintLineupPage() {
             })}
           </tbody>
         </table>
+
         {absences.length > 0 && (
-          <div className="absent-list">
+          <div className="absent-line">
             Absent:{" "}
             {absences
               .map((a) => playerMap.get(a.player_id)?.name ?? "?")
               .join(", ")}
           </div>
         )}
-      </div>
 
-      {/* Pitching summary */}
-      {pitchingPlan.length > 0 && (
-        <div className="print-section" style={{ fontSize: "10px" }}>
-          <strong>Pitching:</strong>{" "}
-          {pitchingPlan.map(
-            (pp) =>
-              `Inn ${pp.inning}: ${playerMap.get(pp.player_id)?.name}${
-                pp.pitch_count > 0 ? ` (${pp.pitch_count}p)` : ""
-              }`
-          ).join(" | ")}
+        {pitchingPlan.length > 0 && (
+          <div className="pitching-line">
+            <strong>Pitching:</strong>{" "}
+            {pitchingPlan.map(
+              (pp) =>
+                `Inn ${pp.inning}: ${playerMap.get(pp.player_id)?.name}${
+                  pp.pitch_count > 0 ? ` (${pp.pitch_count}p)` : ""
+                }`
+            ).join(" | ")}
+          </div>
+        )}
+
+        {/* Seam divider */}
+        <div className="seam-divider">
+          <div className="seam-diamond" />
         </div>
-      )}
 
-      <div className="divider" />
+        {/* ===== BOTTOM: By Position ===== */}
+        <div className="lineup-header">
+          <div className="team-name">{teamName}</div>
+          <div className="game-info">
+            Game {game.game_number}
+            {game.opponent ? ` vs ${game.opponent}` : ""}
+            {game.date ? ` \u2022 ${game.date}` : ""}
+            {homeVisitor && <span className="hv-badge">{homeVisitor}</span>}
+          </div>
+          <div className="section-label">Lineup by Position</div>
+        </div>
 
-      {/* ===== BOTTOM HALF: By Position ===== */}
-      <div className="print-header">
-        <h1>{title}</h1>
-        <p>{subtitle} — Lineup by Position</p>
-      </div>
-
-      <div className="print-section">
-        <table className="print-table">
+        <table className="lineup-table pos-table">
           <thead>
             <tr>
-              <th>Position</th>
+              <th style={{ width: "42px", textAlign: "left", paddingLeft: 6 }}>Pos</th>
               {inningCols.map((inn) => (
                 <th key={inn}>Inn {inn}</th>
               ))}
@@ -312,33 +501,29 @@ export default function PrintLineupPage() {
           <tbody>
             {FIELD_POSITIONS.map((pos) => (
               <tr key={pos}>
-                <td style={{ fontWeight: 600, textAlign: "left" }}>{pos}</td>
+                <td className="pos-col">{pos}</td>
                 {inningCols.map((inn) => {
                   const player = getPlayerAtPosition(inn, pos);
                   return (
                     <td
                       key={inn}
-                      className={pos === "P" ? "pos-pitcher" : ""}
+                      className={`name-cell ${pos === "P" ? "pitcher-cell" : ""}`}
                     >
-                      {player ? `${player.name}` : ""}
+                      {playerNameShort(player)}
                     </td>
                   );
                 })}
               </tr>
             ))}
-            {/* Bench row */}
             <tr>
               <td
-                style={{
-                  fontWeight: 600,
-                  textAlign: "left",
-                  background: "#f5f5f5",
-                }}
+                className="pos-col"
+                style={{ background: "#f8fafc" }}
               >
-                BENCH
+                BN
               </td>
               {inningCols.map((inn) => (
-                <td key={inn} className="pos-bench">
+                <td key={inn} className="bench-names">
                   {getBenchPlayers(inn)
                     .map((p) => p.name)
                     .join(", ")}
@@ -347,15 +532,20 @@ export default function PrintLineupPage() {
             </tr>
           </tbody>
         </table>
+
         {absences.length > 0 && (
-          <div className="absent-list">
+          <div className="absent-line">
             Absent:{" "}
             {absences
               .map((a) => playerMap.get(a.player_id)?.name ?? "?")
               .join(", ")}
           </div>
         )}
+
+        <div className="watermark">LineupIQ</div>
+
       </div>
+      {/* end capturable content */}
     </div>
   );
 }

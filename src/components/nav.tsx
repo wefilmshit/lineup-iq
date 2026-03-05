@@ -14,11 +14,15 @@ const links = [
 export function Nav() {
   const pathname = usePathname();
 
+  // Hide nav on print pages
+  if (pathname.endsWith("/print")) return null;
+
   return (
-    <nav className="border-b bg-white sticky top-0 z-50">
+    <nav className="bg-white sticky top-0 z-50 border-b-[3px] border-b-red-600">
       <div className="max-w-5xl mx-auto px-4">
         <div className="flex items-center justify-between h-14">
-          <Link href="/" className="font-bold text-lg">
+          <Link href="/" className="font-bold text-lg flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 bg-red-600 rotate-45 rounded-[1px]" />
             LineupIQ
           </Link>
           <div className="flex gap-1">
