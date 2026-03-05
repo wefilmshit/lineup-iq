@@ -11,6 +11,22 @@ const links = [
   { href: "/fairness", label: "Fairness" },
 ];
 
+function isLinkActive(href: string, pathname: string): boolean {
+  if (href === "/") return pathname === "/";
+  // /games should only match /games exactly or /games/log, /games/[id] — NOT /games/new
+  if (href === "/games") {
+    return (
+      pathname === "/games" ||
+      pathname === "/games/log" ||
+      /^\/games\/[^/]+$/.test(pathname) && pathname !== "/games/new"
+    );
+  }
+  // /games/new matches /games/new exactly
+  if (href === "/games/new") return pathname === "/games/new";
+  // Everything else: prefix match
+  return pathname.startsWith(href);
+}
+
 export function Nav() {
   const pathname = usePathname();
 
@@ -20,23 +36,21 @@ export function Nav() {
   return (
     <nav className="bg-white sticky top-0 z-50 border-b-[3px] border-b-red-600">
       <div className="max-w-5xl mx-auto px-4">
-        <div className="flex items-center justify-between h-14">
-          <Link href="/" className="font-bold text-lg flex items-center gap-1.5">
+        <div className="flex items-center justify-between h-12 sm:h-14">
+          <Link href="/" className="font-bold text-base sm:text-lg flex items-center gap-1.5 shrink-0">
             <span className="inline-block w-2.5 h-2.5 bg-red-600 rotate-45 rounded-[1px]" />
-            LineupIQ
+            <span className="hidden sm:inline">LineupIQ</span>
+            <span className="sm:hidden">LIQ</span>
           </Link>
-          <div className="flex gap-1">
+          <div className="flex gap-0.5 sm:gap-1 overflow-x-auto">
             {links.map((link) => {
-              const isActive =
-                link.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(link.href);
+              const active = isLinkActive(link.href, pathname);
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive
+                  className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                    active
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
