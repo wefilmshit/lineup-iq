@@ -492,66 +492,59 @@ export function generateLineup(input: GenerateInput): GeneratedLineup {
   }
 
   // --- Generate Batting Order ---
-  // Batting order continuity: rotate from where the last game left off
-  let battingOrder: Player[];
+  // Slot-fairness: for each slot, assign the player who has batted there the least.
+  // This ensures kids who batted early last game bat later this game, and vice versa.
+  const numSlots = availablePlayers.length;
+  const midpoint = (numSlots + 1) / 2;
 
-  if (lastGameBattingOrder.length > 0) {
-    // Find the last batter position from previous game
-    const maxPos = Math.max(...lastGameBattingOrder.map((b) => b.order_position));
-    // The player who batted last in the order
-    const lastBatter = lastGameBattingOrder.find(
-      (b) => b.order_position === maxPos
-    );
-
-    // Build order: start after last batter, cycling through
-    // Only include players who are available this game
-    const availableIds = new Set(availablePlayers.map((p) => p.id));
-    const prevOrder = [...lastGameBattingOrder]
-      .sort((a, b) => a.order_position - b.order_position)
-      .filter((b) => availableIds.has(b.player_id));
-
-    // Find index of last batter in sorted order
-    const lastIdx = prevOrder.findIndex(
-      (b) => b.player_id === lastBatter?.player_id
-    );
-
-    // Rotate: players after lastIdx come first, then wrap around
-    const rotated: string[] = [];
-    for (let i = 1; i <= prevOrder.length; i++) {
-      const idx = (lastIdx + i) % prevOrder.length;
-      rotated.push(prevOrder[idx].player_id);
-    }
-
-    // Add any new players (not in previous batting order) at the end
-    const inRotation = new Set(rotated);
-    for (const p of availablePlayers) {
-      if (!inRotation.has(p.id)) {
-        rotated.push(p.id);
-      }
-    }
-
-    battingOrder = rotated
-      .map((id) => availablePlayers.find((p) => p.id === id)!)
-      .filter(Boolean);
-  } else {
-    // No previous game: sort by season avg batting position + batting rating
-    battingOrder = [...availablePlayers].sort((a, b) => {
-      const sA = stats.get(a.id)!;
-      const sB = stats.get(b.id)!;
-
-      // Players who have been batting later should bat earlier now
-      const avgDiff = sB.avgBattingPosition - sA.avgBattingPosition;
-      if (Math.abs(avgDiff) > 0.5) return avgDiff > 0 ? -1 : 1;
-
-      // Tiebreak: batting rating
-      return b.batting_rating - a.batting_rating;
-    });
+  // For players with no batting history (absent last game or first game),
+  // treat their average as the midpoint so they slot into the middle
+  function effectiveAvg(s: PlayerSeasonStats): number {
+    return s.avgBattingPosition > 0 ? s.avgBattingPosition : midpoint;
   }
 
-  const battingOrderResult = battingOrder.map((p, i) => ({
-    playerId: p.id,
-    orderPosition: i + 1,
-  }));
+  const usedPlayerIds = new Set<string>();
+  const battingOrderResult: { playerId: string; orderPosition: number }[] = [];
+
+  for (let slot = 1; slot <= numSlots; slot++) {
+    const candidates = availablePlayers
+      .filter((p) => !usedPlayerIds.has(p.id))
+      .sort((a, b) => {
+        const sA = stats.get(a.id)!;
+        const sB = stats.get(b.id)!;
+
+        // Primary: fewest times in this specific slot
+        const countA = sA.battingSlotCounts[slot] || 0;
+        const countB = sB.battingSlotCounts[slot] || 0;
+        if (countA !== countB) return countA - countB;
+
+        // Secondary: players who have been batting later should bat earlier now
+        // For early slots (top of order), prefer high avg (been batting late)
+        // For late slots (bottom of order), prefer low avg (been batting early)
+        const avgA = effectiveAvg(sA);
+        const avgB = effectiveAvg(sB);
+        if (slot <= midpoint) {
+          // Early slot: prefer players who've been batting later
+          const diff = avgB - avgA;
+          if (Math.abs(diff) > 0.3) return diff > 0 ? -1 : 1;
+        } else {
+          // Late slot: prefer players who've been batting earlier
+          const diff = avgA - avgB;
+          if (Math.abs(diff) > 0.3) return diff > 0 ? -1 : 1;
+        }
+
+        // Tertiary: batting rating
+        return b.batting_rating - a.batting_rating;
+      });
+
+    if (candidates[0]) {
+      battingOrderResult.push({
+        playerId: candidates[0].id,
+        orderPosition: slot,
+      });
+      usedPlayerIds.add(candidates[0].id);
+    }
+  }
 
   // --- Extract Pitching Plan ---
   const pitchingPlan = assignments
