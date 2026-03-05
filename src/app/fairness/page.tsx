@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
 import { useTeam, usePlayers, useGames, useSeasonData } from "@/lib/hooks";
 import { computeSeasonStats } from "@/lib/generate-lineup";
 import {
   PlayerSeasonStats,
+  AtBat,
   Position,
   FIELD_POSITIONS,
 } from "@/lib/types";
@@ -27,8 +29,31 @@ export default function FairnessPage() {
     loading: seasonLoading,
   } = useSeasonData(team?.id, true);
 
+  // Fetch at_bats for finalized games
+  const [atBats, setAtBats] = useState<AtBat[]>([]);
+  const [atBatsLoading, setAtBatsLoading] = useState(true);
+
+  const loadAtBats = useCallback(async () => {
+    if (finalizedGames.length === 0) {
+      setAtBats([]);
+      setAtBatsLoading(false);
+      return;
+    }
+    const gameIds = finalizedGames.map((g) => g.id);
+    const { data } = await supabase
+      .from("at_bats")
+      .select("*")
+      .in("game_id", gameIds);
+    if (data) setAtBats(data as AtBat[]);
+    setAtBatsLoading(false);
+  }, [finalizedGames]);
+
+  useEffect(() => {
+    if (!gamesLoading) loadAtBats();
+  }, [loadAtBats, gamesLoading]);
+
   const loading =
-    teamLoading || playersLoading || gamesLoading || seasonLoading;
+    teamLoading || playersLoading || gamesLoading || seasonLoading || atBatsLoading;
 
   const stats = useMemo(() => {
     if (players.length === 0) return [];
@@ -359,7 +384,7 @@ export default function FairnessPage() {
         </CardContent>
       </Card>
 
-      {/* Batting Stats */}
+      {/* Batting Stats — Hits Only */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Batting Stats</CardTitle>
@@ -368,65 +393,65 @@ export default function FairnessPage() {
           <p className="text-xs text-muted-foreground mb-3">
             {finalizedGames.length} of 13 games played
           </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 pr-2 sticky left-0 bg-background">
-                    Player
-                  </th>
-                  <th className="text-center py-2 px-2 font-medium text-xs">GP</th>
-                  <th className="text-center py-2 px-2 font-medium text-xs">Abs</th>
-                  <th className="text-center py-2 px-2 font-medium text-xs">Inn</th>
-                  <th className="text-center py-2 px-2 font-medium text-xs">BN</th>
-                  <th className="text-center py-2 px-2 font-medium text-xs">IF</th>
-                  <th className="text-center py-2 px-2 font-medium text-xs">OF</th>
-                  <th className="text-center py-2 px-2 font-medium text-xs">P</th>
-                  <th className="text-center py-2 px-2 font-medium text-xs">C</th>
-                  <th className="text-center py-2 px-2 font-medium text-xs">Avg Bat</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.map((s) => {
-                  const flags = getFairnessFlags(s);
-                  return (
-                    <tr
-                      key={s.playerId}
-                      className={`border-b last:border-0 ${
-                        flags.length > 0 ? "bg-destructive/5" : ""
-                      }`}
-                    >
-                      <td className="py-2 pr-2 font-medium sticky left-0 bg-background">
-                        <div className="flex items-center gap-1">
-                          {s.playerName}
-                          {flags.length > 0 && (
-                            <span className="text-destructive text-xs">!</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="text-center py-2 px-2 tabular-nums">{s.gamesPlayed}</td>
-                      <td className="text-center py-2 px-2 tabular-nums text-muted-foreground">
-                        {s.gamesAbsent || "\u00b7"}
-                      </td>
-                      <td className="text-center py-2 px-2 tabular-nums font-medium">{s.totalInnings}</td>
-                      <td className="text-center py-2 px-2 tabular-nums text-muted-foreground">{s.benchInnings}</td>
-                      <td className="text-center py-2 px-2 tabular-nums">{s.infieldInnings}</td>
-                      <td className="text-center py-2 px-2 tabular-nums">{s.outfieldInnings}</td>
-                      <td className="text-center py-2 px-2 tabular-nums">{s.pitcherInnings || "\u00b7"}</td>
-                      <td className="text-center py-2 px-2 tabular-nums">{s.catcherInnings || "\u00b7"}</td>
-                      <td className="text-center py-2 px-2 tabular-nums text-muted-foreground">
-                        {s.avgBattingPosition > 0 ? s.avgBattingPosition.toFixed(1) : "\u00b7"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="mt-3 text-xs text-muted-foreground">
-            GP = Games Played, Abs = Absent, Inn = Field Innings, BN = Bench,
-            IF = Infield, OF = Outfield, P = Pitcher, C = Catcher, Avg Bat = Average Batting Slot
-          </div>
+          {(() => {
+            // Count hits per player (at_bats are already filtered to finalized games)
+            const hitsByPlayer = new Map<string, number>();
+            for (const ab of atBats) {
+              hitsByPlayer.set(
+                ab.player_id,
+                (hitsByPlayer.get(ab.player_id) || 0) + 1
+              );
+            }
+            const totalTeamHits = atBats.length;
+
+            const playerHits = stats
+              .map((s) => ({
+                ...s,
+                hits: hitsByPlayer.get(s.playerId) || 0,
+              }))
+              .sort((a, b) => b.hits - a.hits);
+
+            const maxHits = Math.max(...playerHits.map((p) => p.hits), 1);
+
+            return (
+              <div className="space-y-2">
+                {playerHits.map((p) => (
+                  <div key={p.playerId} className="flex items-center gap-3">
+                    <span className="text-sm font-medium w-24 truncate">
+                      {p.playerName}
+                    </span>
+                    <div className="flex-1 flex items-center gap-2">
+                      <div className="flex-1 h-5 rounded-md overflow-hidden bg-muted">
+                        {p.hits > 0 && (
+                          <div
+                            className="h-full bg-green-500 rounded-md flex items-center justify-center text-[10px] text-white font-medium"
+                            style={{
+                              width: `${Math.max((p.hits / maxHits) * 100, 12)}%`,
+                            }}
+                          >
+                            {p.hits}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-sm font-bold tabular-nums w-8 text-right">
+                        {p.hits}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {totalTeamHits > 0 && (
+                  <div className="pt-2 border-t text-sm text-muted-foreground">
+                    Team total: {totalTeamHits} hits
+                  </div>
+                )}
+                {totalTeamHits === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No hits recorded yet. Use the Hit Tracker during games.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
