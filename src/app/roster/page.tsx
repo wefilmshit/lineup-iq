@@ -36,6 +36,7 @@ interface PlayerForm {
   pitching_rating: string;
   can_pitch: boolean;
   can_catch: boolean;
+  can_play_1b: boolean;
   preferred_pitcher: boolean;
   throws: string;
   bats: string;
@@ -51,6 +52,7 @@ const emptyPlayer: PlayerForm = {
   pitching_rating: "5",
   can_pitch: false,
   can_catch: false,
+  can_play_1b: true,
   preferred_pitcher: false,
   throws: "R",
   bats: "R",
@@ -85,6 +87,7 @@ export default function RosterPage() {
       pitching_rating: player.pitching_rating.toString(),
       can_pitch: player.can_pitch,
       can_catch: player.can_catch,
+      can_play_1b: player.can_play_1b,
       preferred_pitcher: player.preferred_pitcher,
       throws: player.throws,
       bats: player.bats,
@@ -106,6 +109,7 @@ export default function RosterPage() {
       pitching_rating: parseInt(form.pitching_rating) || 5,
       can_pitch: form.can_pitch,
       can_catch: form.can_catch,
+      can_play_1b: form.can_play_1b,
       preferred_pitcher: form.preferred_pitcher,
       throws: form.throws,
       bats: form.bats,
@@ -302,6 +306,16 @@ export default function RosterPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox
+                    id="can_play_1b"
+                    checked={form.can_play_1b}
+                    onCheckedChange={(v) =>
+                      setForm({ ...form, can_play_1b: v === true })
+                    }
+                  />
+                  <Label htmlFor="can_play_1b">Can Play 1B</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
                     id="preferred_pitcher"
                     checked={form.preferred_pitcher}
                     onCheckedChange={(v) =>
@@ -411,6 +425,11 @@ export default function RosterPage() {
                         {player.can_catch && (
                           <Badge variant="secondary" className="text-xs">
                             C
+                          </Badge>
+                        )}
+                        {player.can_play_1b && (
+                          <Badge variant="secondary" className="text-xs">
+                            1B
                           </Badge>
                         )}
                       </div>

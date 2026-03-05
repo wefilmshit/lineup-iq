@@ -70,6 +70,7 @@ export interface Player {
   pitching_rating: number;
   can_pitch: boolean;
   can_catch: boolean;
+  can_play_1b: boolean;
   preferred_pitcher: boolean;
   throws: "R" | "L";
   bats: "R" | "L" | "S";

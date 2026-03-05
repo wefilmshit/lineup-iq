@@ -176,6 +176,17 @@ export default function NewGamePage() {
     });
   }
 
+  // Swap two players in the batting order
+  function swapBattingOrder(posA: number, posB: number) {
+    if (!generated) return;
+    const newOrder = generated.battingOrder.map((b) => {
+      if (b.orderPosition === posA) return { ...b, orderPosition: posB };
+      if (b.orderPosition === posB) return { ...b, orderPosition: posA };
+      return b;
+    });
+    setGenerated({ ...generated, battingOrder: newOrder });
+  }
+
   // Build the position grid from generated lineup
   function getPlayerAtPosition(inning: number, position: Position): string {
     if (!generated) return "";
@@ -559,31 +570,60 @@ export default function NewGamePage() {
             </Card>
           )}
 
-          {/* Batting Order */}
+          {/* Batting Order (editable) */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Batting Order</CardTitle>
+              <CardTitle className="text-lg">
+                Batting Order (editable)
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {generated.battingOrder.map((b) => (
-                  <div
-                    key={b.playerId}
-                    className="flex items-center gap-3 p-2 rounded-md border"
-                  >
-                    <span className="text-lg font-bold text-muted-foreground w-6 text-right">
-                      {b.orderPosition}
-                    </span>
-                    <span className="font-medium">
-                      {playerMap.get(b.playerId)?.name}
-                    </span>
-                    {playerMap.get(b.playerId)?.bats === "L" && (
-                      <Badge variant="outline" className="text-xs">
-                        L
-                      </Badge>
-                    )}
-                  </div>
-                ))}
+              <div className="space-y-1">
+                {generated.battingOrder
+                  .slice()
+                  .sort((a, b) => a.orderPosition - b.orderPosition)
+                  .map((b) => {
+                    const player = playerMap.get(b.playerId);
+                    return (
+                      <div
+                        key={b.playerId}
+                        className="flex items-center gap-2 p-1.5 rounded-md border"
+                      >
+                        <span className="text-lg font-bold text-muted-foreground w-7 text-right shrink-0">
+                          {b.orderPosition}
+                        </span>
+                        <span className="font-medium flex-1 truncate">
+                          #{player?.jersey_number} {player?.name}
+                        </span>
+                        {player?.bats === "L" && (
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            L
+                          </Badge>
+                        )}
+                        {player?.bats === "S" && (
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            S
+                          </Badge>
+                        )}
+                        <div className="flex gap-0.5 shrink-0">
+                          <button
+                            className="w-7 h-7 rounded border text-sm font-bold text-muted-foreground hover:bg-muted disabled:opacity-20"
+                            disabled={b.orderPosition === 1}
+                            onClick={() => swapBattingOrder(b.orderPosition, b.orderPosition - 1)}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            className="w-7 h-7 rounded border text-sm font-bold text-muted-foreground hover:bg-muted disabled:opacity-20"
+                            disabled={b.orderPosition === generated.battingOrder.length}
+                            onClick={() => swapBattingOrder(b.orderPosition, b.orderPosition + 1)}
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             </CardContent>
           </Card>

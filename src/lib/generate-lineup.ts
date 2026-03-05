@@ -420,11 +420,20 @@ export function generateLineup(input: GenerateInput): GeneratedLineup {
         if (assignedIds.has(p.id)) return false;
         if (gamePositionCount(p.id, pos) >= rules.maxSamePositionInnings)
           return false;
+        // Safety: only can_play_1b players at first base
+        if (pos === "1B" && !p.can_play_1b) return false;
         return true;
       });
-      // Fallback: ignore position limit
+      // Fallback: ignore position limit but still respect 1B safety
       const fallback =
-        player || needInfield.find((p) => !assignedIds.has(p.id));
+        player ||
+        needInfield.find(
+          (p) =>
+            !assignedIds.has(p.id) &&
+            (pos !== "1B" || p.can_play_1b)
+        ) ||
+        // Last resort: anyone unassigned (shouldn't happen with enough eligible players)
+        needInfield.find((p) => !assignedIds.has(p.id));
       if (fallback) {
         assignments.push({
           playerId: fallback.id,

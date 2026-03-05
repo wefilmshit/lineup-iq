@@ -359,6 +359,77 @@ export default function FairnessPage() {
         </CardContent>
       </Card>
 
+      {/* Batting Stats */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Batting Stats</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground mb-3">
+            {finalizedGames.length} of 13 games played
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 pr-2 sticky left-0 bg-background">
+                    Player
+                  </th>
+                  <th className="text-center py-2 px-2 font-medium text-xs">GP</th>
+                  <th className="text-center py-2 px-2 font-medium text-xs">Abs</th>
+                  <th className="text-center py-2 px-2 font-medium text-xs">Inn</th>
+                  <th className="text-center py-2 px-2 font-medium text-xs">BN</th>
+                  <th className="text-center py-2 px-2 font-medium text-xs">IF</th>
+                  <th className="text-center py-2 px-2 font-medium text-xs">OF</th>
+                  <th className="text-center py-2 px-2 font-medium text-xs">P</th>
+                  <th className="text-center py-2 px-2 font-medium text-xs">C</th>
+                  <th className="text-center py-2 px-2 font-medium text-xs">Avg Bat</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.map((s) => {
+                  const flags = getFairnessFlags(s);
+                  return (
+                    <tr
+                      key={s.playerId}
+                      className={`border-b last:border-0 ${
+                        flags.length > 0 ? "bg-destructive/5" : ""
+                      }`}
+                    >
+                      <td className="py-2 pr-2 font-medium sticky left-0 bg-background">
+                        <div className="flex items-center gap-1">
+                          {s.playerName}
+                          {flags.length > 0 && (
+                            <span className="text-destructive text-xs">!</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="text-center py-2 px-2 tabular-nums">{s.gamesPlayed}</td>
+                      <td className="text-center py-2 px-2 tabular-nums text-muted-foreground">
+                        {s.gamesAbsent || "\u00b7"}
+                      </td>
+                      <td className="text-center py-2 px-2 tabular-nums font-medium">{s.totalInnings}</td>
+                      <td className="text-center py-2 px-2 tabular-nums text-muted-foreground">{s.benchInnings}</td>
+                      <td className="text-center py-2 px-2 tabular-nums">{s.infieldInnings}</td>
+                      <td className="text-center py-2 px-2 tabular-nums">{s.outfieldInnings}</td>
+                      <td className="text-center py-2 px-2 tabular-nums">{s.pitcherInnings || "\u00b7"}</td>
+                      <td className="text-center py-2 px-2 tabular-nums">{s.catcherInnings || "\u00b7"}</td>
+                      <td className="text-center py-2 px-2 tabular-nums text-muted-foreground">
+                        {s.avgBattingPosition > 0 ? s.avgBattingPosition.toFixed(1) : "\u00b7"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 text-xs text-muted-foreground">
+            GP = Games Played, Abs = Absent, Inn = Field Innings, BN = Bench,
+            IF = Infield, OF = Outfield, P = Pitcher, C = Catcher, Avg Bat = Average Batting Slot
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Pitching Stats */}
       {stats.some((s) => s.totalPitchCount > 0) && (
         <Card>
