@@ -217,7 +217,7 @@ export default function PrintLineupPage() {
           margin: 8px auto 0;
           width: 80%;
           height: 3px;
-          background: linear-gradient(90deg, transparent, #1D4ED8, transparent);
+          background: linear-gradient(90deg, transparent, #0a6ff2, transparent);
         }
         .team-name {
           font-size: 18px;
@@ -274,7 +274,7 @@ export default function PrintLineupPage() {
           width: 10px;
           height: 10px;
           background: white;
-          border: 2px solid #1D4ED8;
+          border: 2px solid #0a6ff2;
           transform: rotate(45deg);
         }
 
@@ -315,7 +315,7 @@ export default function PrintLineupPage() {
         }
         .lineup-table td.pitcher-cell {
           background: #eff6ff;
-          color: #1D4ED8;
+          color: #0a6ff2;
           font-weight: 700;
         }
         .lineup-table td.bench-cell {
@@ -349,7 +349,7 @@ export default function PrintLineupPage() {
           padding: 4px 6px;
           background: #eff6ff;
           border-radius: 4px;
-          border-left: 3px solid #1D4ED8;
+          border-left: 3px solid #0a6ff2;
         }
         .pitching-line strong {
           color: #1e293b;
