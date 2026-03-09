@@ -136,35 +136,35 @@ export default function NewGamePage() {
     toast.success("Lineup generated!");
   }
 
-  // Swap pitcher for a specific inning
-  function swapPitcher(inning: number, newPitcherId: string) {
+  // Swap any position for a specific inning
+  function swapPosition(inning: number, position: Position, newPlayerId: string) {
     if (!generated) return;
 
     const newPositions = [...generated.positions];
 
-    // Find the current pitcher for this inning
-    const currentPitcherIdx = newPositions.findIndex(
-      (a) => a.inning === inning && a.position === "P"
+    // Find the current player at this position/inning
+    const currentIdx = newPositions.findIndex(
+      (a) => a.inning === inning && a.position === position
     );
-    // Find where the new pitcher is currently assigned this inning
-    const newPitcherIdx = newPositions.findIndex(
-      (a) => a.inning === inning && a.playerId === newPitcherId
+    // Find where the new player is currently assigned this inning
+    const newPlayerIdx = newPositions.findIndex(
+      (a) => a.inning === inning && a.playerId === newPlayerId
     );
 
-    if (currentPitcherIdx === -1 || newPitcherIdx === -1) return;
+    if (currentIdx === -1 || newPlayerIdx === -1) return;
 
-    // Swap: old pitcher gets new pitcher's old position, new pitcher becomes P
-    const oldPitcherPos = newPositions[newPitcherIdx].position;
-    newPositions[currentPitcherIdx] = {
-      ...newPositions[currentPitcherIdx],
-      position: oldPitcherPos,
+    // Swap their positions
+    const oldPosition = newPositions[newPlayerIdx].position;
+    newPositions[currentIdx] = {
+      ...newPositions[currentIdx],
+      position: oldPosition,
     };
-    newPositions[newPitcherIdx] = {
-      ...newPositions[newPitcherIdx],
-      position: "P",
+    newPositions[newPlayerIdx] = {
+      ...newPositions[newPlayerIdx],
+      position: position,
     };
 
-    // Update pitching plan
+    // Rebuild pitching plan in case pitcher changed
     const newPitchingPlan = newPositions
       .filter((a) => a.position === "P")
       .map((a) => ({ playerId: a.playerId, inning: a.inning }));
@@ -174,6 +174,11 @@ export default function NewGamePage() {
       positions: newPositions,
       pitchingPlan: newPitchingPlan,
     });
+  }
+
+  // Convenience wrapper for pitcher swap dropdown
+  function swapPitcher(inning: number, newPitcherId: string) {
+    swapPosition(inning, "P" as Position, newPitcherId);
   }
 
   // Swap two players in the batting order
@@ -188,13 +193,18 @@ export default function NewGamePage() {
   }
 
   // Build the position grid from generated lineup
-  function getPlayerAtPosition(inning: number, position: Position): string {
+  function getPlayerIdAtPosition(inning: number, position: Position): string {
     if (!generated) return "";
     const assignment = generated.positions.find(
       (a) => a.inning === inning && a.position === position
     );
-    if (!assignment) return "";
-    return playerMap.get(assignment.playerId)?.name ?? "";
+    return assignment?.playerId ?? "";
+  }
+
+  function getPlayerAtPosition(inning: number, position: Position): string {
+    if (!generated) return "";
+    const playerId = getPlayerIdAtPosition(inning, position);
+    return playerMap.get(playerId)?.name ?? "";
   }
 
   // Get bench players for an inning
@@ -473,14 +483,27 @@ export default function NewGamePage() {
                       <td className="py-2 pr-4 font-medium text-muted-foreground">
                         {pos}
                       </td>
-                      {Array.from({ length: innings }, (_, i) => (
-                        <td
-                          key={i}
-                          className="text-center py-2 px-3 whitespace-nowrap"
-                        >
-                          {getPlayerAtPosition(i + 1, pos)}
-                        </td>
-                      ))}
+                      {Array.from({ length: innings }, (_, i) => {
+                        const inning = i + 1;
+                        const currentId = getPlayerIdAtPosition(inning, pos);
+                        return (
+                          <td key={i} className="py-1 px-1">
+                            <select
+                              className="w-full text-xs py-1 px-1 rounded border border-border bg-background"
+                              value={currentId}
+                              onChange={(e) =>
+                                swapPosition(inning, pos, e.target.value)
+                              }
+                            >
+                              {availablePlayers.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                   {/* Bench rows */}
