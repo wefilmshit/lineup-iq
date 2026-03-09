@@ -161,10 +161,10 @@ export function generateLineup(input: GenerateInput): GeneratedLineup {
     seasonAbsences
   );
 
-  // Build a set of player IDs who are resting from pitching (threw > threshold last game)
+  // Build a set of player IDs who are resting from pitching (threw ≥ threshold last game)
   const pitchRestIds = new Set<string>();
   for (const pp of previousGamePitchCounts) {
-    if (pp.pitch_count > rules.pitchRestThreshold) {
+    if (pp.pitch_count >= rules.pitchRestThreshold) {
       pitchRestIds.add(pp.player_id);
     }
   }

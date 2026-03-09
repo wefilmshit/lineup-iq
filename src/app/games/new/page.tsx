@@ -562,7 +562,7 @@ export default function NewGamePage() {
                 {lastGameBattingOrder.length > 0 && (
                   <p className="mt-3 text-xs text-muted-foreground">
                     Batting order continues from last game. Pitchers on
-                    rest (threw &gt;{team?.pitch_rest_threshold} pitches
+                    rest (threw ≥{team?.pitch_rest_threshold} pitches
                     last game) are excluded from pitching.
                   </p>
                 )}
