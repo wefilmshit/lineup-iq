@@ -136,7 +136,7 @@ export default function Home() {
       {/* Quick Actions */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Link href="/games/new">
-          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-l-[3px] border-l-green-600">
             <CardContent className="py-6 text-center">
               <div className="text-3xl mb-2">+</div>
               <div className="font-semibold">New Game</div>
@@ -147,7 +147,7 @@ export default function Home() {
           </Card>
         </Link>
         <Link href="/games/log">
-          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-l-[3px] border-l-green-600">
             <CardContent className="py-6 text-center">
               <div className="text-3xl mb-2">&#x1f4cb;</div>
               <div className="font-semibold">Log Game</div>
@@ -158,7 +158,7 @@ export default function Home() {
           </Card>
         </Link>
         <Link href="/roster">
-          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-l-[3px] border-l-green-600">
             <CardContent className="py-6 text-center">
               <div className="text-3xl mb-2">{players.length}</div>
               <div className="font-semibold">Players</div>
@@ -169,7 +169,7 @@ export default function Home() {
           </Card>
         </Link>
         <Link href="/fairness">
-          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-l-[3px] border-l-green-600">
             <CardContent className="py-6 text-center">
               <div className="text-3xl mb-2">{games.length}</div>
               <div className="font-semibold">Games</div>
@@ -183,7 +183,7 @@ export default function Home() {
 
       {/* League Rules */}
       {team && (
-        <Card>
+        <Card className="bg-[#fdfbf7]">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">League Rules</CardTitle>
@@ -372,7 +372,7 @@ export default function Home() {
 
       {/* Recent Games */}
       {games.length > 0 && (
-        <Card>
+        <Card className="bg-[#fdfbf7]">
           <CardHeader>
             <CardTitle className="text-lg">Recent Games</CardTitle>
           </CardHeader>
