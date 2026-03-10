@@ -42,8 +42,8 @@ export function Nav() {
               className="inline-block w-3 h-3 bg-black"
               style={{ clipPath: "polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%)" }}
             />
-            <span className="hidden sm:inline">LineupIQ</span>
-            <span className="sm:hidden">LIQ</span>
+            <span className="hidden sm:inline">Lineup<span className="text-[#0a6ff2]">IQ</span></span>
+            <span className="sm:hidden">L<span className="text-[#0a6ff2]">IQ</span></span>
           </Link>
           <div className="flex gap-0.5 sm:gap-1 overflow-x-auto">
             {links.map((link) => {
