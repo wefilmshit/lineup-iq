@@ -398,7 +398,7 @@ export default function Home() {
                         </span>
                         {game.home_away && (
                           <Badge variant="outline" className="text-xs">
-                            {game.home_away === "home" ? "H" : "V"}
+                            {game.home_away === "home" ? "Home" : "Away"}
                           </Badge>
                         )}
                         {!game.is_finalized && (
