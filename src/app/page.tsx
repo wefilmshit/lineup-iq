@@ -136,44 +136,44 @@ export default function Home() {
       {/* Quick Actions */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Link href="/games/new">
-          <Card className="bg-[#2d5a27] hover:bg-[#346b2d] transition-colors cursor-pointer h-full border-[#2d5a27]">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-l-[3px] border-l-green-600">
             <CardContent className="py-6 text-center">
-              <div className="text-3xl mb-2 text-white">+</div>
-              <div className="font-semibold text-white">New Game</div>
-              <div className="text-sm text-green-200">
+              <div className="text-3xl mb-2">+</div>
+              <div className="font-semibold">New Game</div>
+              <div className="text-sm text-muted-foreground">
                 Generate a fair lineup
               </div>
             </CardContent>
           </Card>
         </Link>
         <Link href="/games/log">
-          <Card className="bg-[#2d5a27] hover:bg-[#346b2d] transition-colors cursor-pointer h-full border-[#2d5a27]">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-l-[3px] border-l-green-600">
             <CardContent className="py-6 text-center">
               <div className="text-3xl mb-2">&#x1f4cb;</div>
-              <div className="font-semibold text-white">Log Game</div>
-              <div className="text-sm text-green-200">
+              <div className="font-semibold">Log Game</div>
+              <div className="text-sm text-muted-foreground">
                 Enter a past game
               </div>
             </CardContent>
           </Card>
         </Link>
         <Link href="/roster">
-          <Card className="bg-[#2d5a27] hover:bg-[#346b2d] transition-colors cursor-pointer h-full border-[#2d5a27]">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-l-[3px] border-l-green-600">
             <CardContent className="py-6 text-center">
-              <div className="text-3xl mb-2 text-white font-bold">{players.length}</div>
-              <div className="font-semibold text-white">Players</div>
-              <div className="text-sm text-green-200">
+              <div className="text-3xl mb-2">{players.length}</div>
+              <div className="font-semibold">Players</div>
+              <div className="text-sm text-muted-foreground">
                 Manage your roster
               </div>
             </CardContent>
           </Card>
         </Link>
         <Link href="/fairness">
-          <Card className="bg-[#2d5a27] hover:bg-[#346b2d] transition-colors cursor-pointer h-full border-[#2d5a27]">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-l-[3px] border-l-green-600">
             <CardContent className="py-6 text-center">
-              <div className="text-3xl mb-2 text-white font-bold">{games.length}</div>
-              <div className="font-semibold text-white">Games</div>
-              <div className="text-sm text-green-200">
+              <div className="text-3xl mb-2">{games.length}</div>
+              <div className="font-semibold">Games</div>
+              <div className="text-sm text-muted-foreground">
                 View fairness stats
               </div>
             </CardContent>
@@ -183,7 +183,7 @@ export default function Home() {
 
       {/* League Rules */}
       {team && (
-        <Card className="bg-[#faf3eb] border-[#e8d5be]">
+        <Card className="bg-[#fdfbf7]">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">League Rules</CardTitle>
@@ -372,7 +372,7 @@ export default function Home() {
 
       {/* Recent Games */}
       {games.length > 0 && (
-        <Card className="bg-[#faf3eb] border-[#e8d5be]">
+        <Card className="bg-[#fdfbf7]">
           <CardHeader>
             <CardTitle className="text-lg">Recent Games</CardTitle>
           </CardHeader>
