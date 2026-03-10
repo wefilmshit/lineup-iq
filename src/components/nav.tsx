@@ -38,7 +38,10 @@ export function Nav() {
       <div className="max-w-5xl mx-auto px-4">
         <div className="flex items-center justify-between h-12 sm:h-14">
           <Link href="/" className="font-bold text-base sm:text-lg flex items-center gap-1.5 shrink-0">
-            <span className="inline-block w-2.5 h-2.5 bg-[#0a6ff2] rotate-45 rounded-[1px]" />
+            <span
+              className="inline-block w-3 h-3 bg-black"
+              style={{ clipPath: "polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%)" }}
+            />
             <span className="hidden sm:inline">LineupIQ</span>
             <span className="sm:hidden">LIQ</span>
           </Link>
