@@ -10,8 +10,10 @@ import {
   Position,
   FIELD_POSITIONS,
 } from "@/lib/types";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export default function FairnessPage() {
   const { team, loading: teamLoading } = useTeam();
@@ -114,12 +116,17 @@ export default function FairnessPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Fairness Dashboard</h1>
-        <p className="text-muted-foreground">
-          {finalizedGames.length} finalized game{finalizedGames.length !== 1 ? "s" : ""} — Avg{" "}
-          {avgInnings.toFixed(1)} innings per player
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Fairness Dashboard</h1>
+          <p className="text-muted-foreground">
+            {finalizedGames.length} finalized game{finalizedGames.length !== 1 ? "s" : ""} — Avg{" "}
+            {avgInnings.toFixed(1)} innings per player
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/fairness/print">Print Report</Link>
+        </Button>
       </div>
 
       {/* Summary Bar Chart */}
