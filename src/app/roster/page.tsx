@@ -464,15 +464,29 @@ export default function RosterPage() {
   );
 }
 
+// Grey-to-green gradient: grey at 1, baseball-grass green at 10
+function ratingColor(value: number): string {
+  // Interpolate from grey (#9ca3af) to rich grass green (#16a34a)
+  const t = Math.max(0, Math.min(1, (value - 1) / 9));
+  const r = Math.round(156 + (22 - 156) * t);
+  const g = Math.round(163 + (163 - 163) * t);
+  const b = Math.round(175 + (74 - 175) * t);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 function RatingDots({ value }: { value: number }) {
+  const color = ratingColor(value);
   return (
     <div className="flex gap-0.5">
       {Array.from({ length: 10 }, (_, i) => (
         <div
           key={i}
-          className={`w-1.5 h-3 rounded-sm ${
-            i < value ? "bg-primary" : "bg-muted"
-          }`}
+          className="w-1.5 h-3 rounded-sm"
+          style={
+            i < value
+              ? { backgroundColor: color }
+              : { backgroundColor: "var(--muted)" }
+          }
         />
       ))}
     </div>
