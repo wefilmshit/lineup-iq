@@ -573,7 +573,7 @@ export default function RosterPage() {
 
       {/* ─── Summary Stats ───────────────────────────── */}
       {players.length > 0 && (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
           <StatCard value={stats.total} label="Players" />
           <StatCard value={stats.pitchers} label="Pitchers" />
           <StatCard value={stats.catchers} label="Catchers" />
