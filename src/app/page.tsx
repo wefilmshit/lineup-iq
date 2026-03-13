@@ -45,7 +45,7 @@ export default function Home() {
   }, [players, lineups, battingOrders, pitchingPlans, absences]);
 
   if (loading) {
-    return <div className="text-muted-foreground">Loading...</div>;
+    return <div className="text-[#6B7280]">Loading...</div>;
   }
 
   const wins = games.filter((g) => g.result?.startsWith("W")).length;
@@ -85,95 +85,122 @@ export default function Home() {
 
   return (
     <div className="space-y-6">
-      {/* Team Header */}
-      <div className="flex items-center justify-between">
-        {editingTeam ? (
-          <div className="flex gap-2 items-end">
-            <div>
-              <Label>Team Name</Label>
-              <Input
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-              />
+      {/* Team Hero Card */}
+      <Card className="border-[#E2E8F0] shadow-sm">
+        <CardContent className="pt-6">
+          {editingTeam ? (
+            <div className="flex gap-2 items-end flex-wrap">
+              <div>
+                <Label>Team Name</Label>
+                <Input
+                  value={teamName}
+                  onChange={(e) => setTeamName(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Season</Label>
+                <Input
+                  value={teamSeason}
+                  onChange={(e) => setTeamSeason(e.target.value)}
+                />
+              </div>
+              <Button onClick={saveTeamEdit} size="sm" className="bg-[#1E63E9] hover:bg-[#2F80FF]">
+                Save
+              </Button>
+              <Button
+                onClick={() => setEditingTeam(false)}
+                variant="ghost"
+                size="sm"
+              >
+                Cancel
+              </Button>
             </div>
+          ) : (
             <div>
-              <Label>Season</Label>
-              <Input
-                value={teamSeason}
-                onChange={(e) => setTeamSeason(e.target.value)}
-              />
+              <div className="flex items-start justify-between">
+                <div>
+                  <h1 className="text-2xl sm:text-4xl font-bold text-[#0B1F3A]">
+                    {team?.name ?? "LineupIQ"}
+                  </h1>
+                  <p className="text-[#6B7280] text-base font-medium mt-1">
+                    {team?.season ?? ""}
+                  </p>
+                </div>
+                <button
+                  onClick={startEditTeam}
+                  className="text-sm text-[#6B7280] hover:text-[#0B1F3A] transition-colors"
+                >
+                  Edit
+                </button>
+              </div>
+
+              {/* Stat Row */}
+              {games.length > 0 && (
+                <div className="flex gap-6 mt-5 pt-5 border-t border-[#E2E8F0]">
+                  <div className="text-center">
+                    <div className="text-2xl sm:text-3xl font-bold text-[#0B1F3A]">{wins}</div>
+                    <div className="text-xs sm:text-sm font-medium text-[#6B7280] uppercase tracking-wide">Wins</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl sm:text-3xl font-bold text-[#0B1F3A]">{losses}</div>
+                    <div className="text-xs sm:text-sm font-medium text-[#6B7280] uppercase tracking-wide">Losses</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl sm:text-3xl font-bold text-[#0B1F3A]">{games.length}</div>
+                    <div className="text-xs sm:text-sm font-medium text-[#6B7280] uppercase tracking-wide">Games</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl sm:text-3xl font-bold text-[#0B1F3A]">{players.length}</div>
+                    <div className="text-xs sm:text-sm font-medium text-[#6B7280] uppercase tracking-wide">Players</div>
+                  </div>
+                </div>
+              )}
             </div>
-            <Button onClick={saveTeamEdit} size="sm">
-              Save
-            </Button>
-            <Button
-              onClick={() => setEditingTeam(false)}
-              variant="ghost"
-              size="sm"
-            >
-              Cancel
-            </Button>
-          </div>
-        ) : (
-          <div>
-            <h1 className="text-3xl font-bold">
-              {team?.name ?? "LineupIQ"}
-            </h1>
-            <p className="text-muted-foreground">
-              {team?.season ?? ""}
-              {games.length > 0 && ` \u2022 ${wins}-${losses}`}
-            </p>
-            <button
-              onClick={startEditTeam}
-              className="text-xs text-muted-foreground hover:text-foreground underline mt-1"
-            >
-              Edit team info
-            </button>
-          </div>
-        )}
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Link href="/games/new">
-          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-l-[3px] border-l-green-600">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-full border-[#E2E8F0] shadow-sm">
             <CardContent className="py-6 text-center">
-              <div className="text-3xl mb-2">+</div>
-              <div className="font-semibold">New Game</div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-3xl mb-2 text-[#FFC857]">+</div>
+              <div className="font-semibold text-[#0B1F3A]">New Game</div>
+              <div className="text-sm text-[#6B7280]">
                 Generate a fair lineup
               </div>
             </CardContent>
           </Card>
         </Link>
         <Link href="/games/log">
-          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-l-[3px] border-l-green-600">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-full border-[#E2E8F0] shadow-sm">
             <CardContent className="py-6 text-center">
-              <div className="text-3xl mb-2">&#x1f4cb;</div>
-              <div className="font-semibold">Log Game</div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-3xl mb-2 text-[#1E63E9]">&#x1f4cb;</div>
+              <div className="font-semibold text-[#0B1F3A]">Log Game</div>
+              <div className="text-sm text-[#6B7280]">
                 Enter a past game
               </div>
             </CardContent>
           </Card>
         </Link>
         <Link href="/roster">
-          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-l-[3px] border-l-green-600">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-full border-[#E2E8F0] shadow-sm">
             <CardContent className="py-6 text-center">
-              <div className="text-3xl mb-2">{players.length}</div>
-              <div className="font-semibold">Players</div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-3xl mb-2 text-[#1E63E9]">{players.length}</div>
+              <div className="font-semibold text-[#0B1F3A]">Players</div>
+              <div className="text-sm text-[#6B7280]">
                 Manage your roster
               </div>
             </CardContent>
           </Card>
         </Link>
         <Link href="/fairness">
-          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full border-l-[3px] border-l-green-600">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer h-full border-[#E2E8F0] shadow-sm">
             <CardContent className="py-6 text-center">
-              <div className="text-3xl mb-2">{games.length}</div>
-              <div className="font-semibold">Games</div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-3xl mb-2 text-[#1E63E9]">{games.length}</div>
+              <div className="font-semibold text-[#0B1F3A]">Games</div>
+              <div className="text-sm text-[#6B7280]">
                 View fairness stats
               </div>
             </CardContent>
@@ -183,13 +210,14 @@ export default function Home() {
 
       {/* League Rules */}
       {team && (
-        <Card className="bg-[#fdfbf7]">
+        <Card className="border-[#E2E8F0] shadow-sm">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">League Rules</CardTitle>
+              <CardTitle className="text-lg text-[#0B1F3A]">League Rules</CardTitle>
               <Button
                 variant="ghost"
                 size="sm"
+                className="text-[#6B7280] hover:text-[#0B1F3A]"
                 onClick={() => setEditingRules(!editingRules)}
               >
                 {editingRules ? "Done" : "Edit"}
@@ -290,46 +318,46 @@ export default function Home() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
                 <div>
-                  <span className="text-muted-foreground">Innings/game:</span>{" "}
-                  <span className="font-medium">{team.innings_per_game}</span>
+                  <span className="text-[#6B7280]">Innings/game:</span>{" "}
+                  <span className="font-medium text-[#0B1F3A]">{team.innings_per_game}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">
+                  <span className="text-[#6B7280]">
                     Max pitch inn/game:
                   </span>{" "}
-                  <span className="font-medium">
+                  <span className="font-medium text-[#0B1F3A]">
                     {team.max_pitch_innings_per_game}
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">
+                  <span className="text-[#6B7280]">
                     Max pitches/game:
                   </span>{" "}
-                  <span className="font-medium">
+                  <span className="font-medium text-[#0B1F3A]">
                     {team.max_pitches_per_game}
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">
+                  <span className="text-[#6B7280]">
                     Pitch rest threshold:
                   </span>{" "}
-                  <span className="font-medium">
+                  <span className="font-medium text-[#0B1F3A]">
                     {team.pitch_rest_threshold}
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">
+                  <span className="text-[#6B7280]">
                     Max same pos/game:
                   </span>{" "}
-                  <span className="font-medium">
+                  <span className="font-medium text-[#0B1F3A]">
                     {team.max_same_position_innings}
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">
+                  <span className="text-[#6B7280]">
                     Require infield:
                   </span>{" "}
-                  <span className="font-medium">
+                  <span className="font-medium text-[#0B1F3A]">
                     {team.require_infield_inning ? "Yes" : "No"}
                   </span>
                 </div>
@@ -341,16 +369,16 @@ export default function Home() {
 
       {/* Fairness Health Check */}
       {fairnessIssues.length > 0 && (
-        <Card className="border-destructive/50">
+        <Card className="border-[#EF4444]/50 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg text-destructive">
+            <CardTitle className="text-lg text-[#EF4444]">
               Fairness Alerts
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-1">
               {fairnessIssues.map((issue, i) => (
-                <li key={i} className="text-sm flex items-center gap-2">
+                <li key={i} className="text-sm flex items-center gap-2 text-[#0B1F3A]">
                   <Badge variant="destructive" className="text-xs">
                     !
                   </Badge>
@@ -363,8 +391,8 @@ export default function Home() {
       )}
 
       {fairnessIssues.length === 0 && games.length > 0 && (
-        <Card className="border-green-500/30 bg-green-50/50">
-          <CardContent className="py-4 text-center text-green-700 text-sm font-medium">
+        <Card className="border-[#2ECC71]/30 bg-[#2ECC71]/5 shadow-sm">
+          <CardContent className="py-4 text-center text-[#059669] text-sm font-medium">
             All players are getting fair playing time
           </CardContent>
         </Card>
@@ -372,9 +400,9 @@ export default function Home() {
 
       {/* Recent Games */}
       {games.length > 0 && (
-        <Card className="bg-[#fdfbf7]">
+        <Card className="border-[#E2E8F0] shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Recent Games</CardTitle>
+            <CardTitle className="text-lg text-[#0B1F3A]">Recent Games</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -383,17 +411,17 @@ export default function Home() {
                 .reverse()
                 .map((game) => (
                   <Link key={game.id} href={`/games/${game.id}`}>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-md hover:bg-muted/50 cursor-pointer">
+                    <div className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-[#F0F4F8] cursor-pointer transition-colors">
                       <div className="flex items-center gap-3">
-                        <span className="font-mono text-muted-foreground">
+                        <span className="font-mono text-[#6B7280]">
                           #{game.game_number}
                         </span>
-                        <span className="font-medium">
+                        <span className="font-medium text-[#0B1F3A]">
                           {game.opponent
                             ? `vs ${game.opponent}`
                             : `Game ${game.game_number}`}
                         </span>
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-sm text-[#6B7280]">
                           {game.date}
                         </span>
                         {game.home_away && (
@@ -402,17 +430,17 @@ export default function Home() {
                           </Badge>
                         )}
                         {!game.is_finalized && (
-                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
+                          <Badge variant="outline" className="text-xs text-[#FFC857] border-[#FFC857]/50">
                             Draft
                           </Badge>
                         )}
                       </div>
                       {game.result && (
                         <Badge
-                          variant={
+                          className={
                             game.result.startsWith("W")
-                              ? "default"
-                              : "secondary"
+                              ? "bg-[#2ECC71] text-white hover:bg-[#2ECC71]/90"
+                              : "bg-[#F0F4F8] text-[#6B7280]"
                           }
                         >
                           {game.result}
@@ -428,16 +456,16 @@ export default function Home() {
 
       {/* Getting Started */}
       {players.length === 0 && (
-        <Card>
+        <Card className="border-[#E2E8F0] shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Getting Started</CardTitle>
+            <CardTitle className="text-lg text-[#0B1F3A]">Getting Started</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <CardContent className="space-y-3 text-sm text-[#6B7280]">
             <p>
               1. Add your players on the{" "}
               <Link
                 href="/roster"
-                className="font-medium text-foreground underline"
+                className="font-medium text-[#1E63E9] hover:text-[#2F80FF] underline"
               >
                 Roster
               </Link>{" "}
@@ -449,7 +477,7 @@ export default function Home() {
               4. Hit{" "}
               <Link
                 href="/games/new"
-                className="font-medium text-foreground underline"
+                className="font-medium text-[#1E63E9] hover:text-[#2F80FF] underline"
               >
                 New Game
               </Link>{" "}
