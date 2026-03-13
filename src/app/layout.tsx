@@ -31,7 +31,7 @@ export default function RootLayout({
       >
         <Nav />
         <main className="max-w-5xl mx-auto px-4 py-6 pb-24 md:pb-6">{children}</main>
-        <footer className="hidden md:block text-center text-xs text-[#94A3B8] py-4">
+        <footer className="text-center text-xs text-[#94A3B8] py-4 mb-20 md:mb-0">
           &copy; 2026 LineupIQ
         </footer>
         <Toaster />
