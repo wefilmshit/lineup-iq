@@ -33,15 +33,15 @@ export function Nav() {
   if (pathname.endsWith("/print")) return null;
 
   return (
-    <nav className="bg-white sticky top-0 z-50 border-b-[3px] border-b-[#0a6ff2]">
+    <nav className="bg-[#0a6ff2] sticky top-0 z-50">
       <div className="max-w-5xl mx-auto px-4">
         <div className="flex items-center justify-between h-12 sm:h-14">
-          <Link href="/" className="font-bold text-base sm:text-lg flex items-center gap-1.5 shrink-0">
+          <Link href="/" className="font-bold text-base sm:text-lg flex items-center gap-1.5 shrink-0 text-white">
             <span
-              className="inline-block w-3 h-3 bg-black"
+              className="inline-block w-3 h-3 bg-white"
               style={{ clipPath: "polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%)" }}
             />
-            <span>Lineup<span className="text-[#0a6ff2]">IQ</span></span>
+            <span>LineupIQ</span>
           </Link>
           <div className="flex gap-0.5 sm:gap-1 overflow-x-auto">
             {links.map((link) => {
@@ -52,8 +52,8 @@ export function Nav() {
                   href={link.href}
                   className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap uppercase ${
                     active
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      ? "bg-white/20 text-white"
+                      : "text-white/70 hover:text-white hover:bg-white/10"
                   }`}
                 >
                   {link.label}
