@@ -593,7 +593,7 @@ export default function PrintLineupPage() {
 
         /* ─── Share Pitching Tiles ────────────────── */
         .share-pitching {
-          padding: 8px 12px 9px;
+          padding: 7px 12px 8px;
           background: #ffffff;
           border-bottom: 1px solid #E6ECF5;
         }
@@ -620,7 +620,7 @@ export default function PrintLineupPage() {
           background: #ffffff;
           border: 1px solid #E6ECF5;
           border-radius: 8px;
-          padding: 5px 6px 6px;
+          padding: 4px 6px 5px;
         }
         .share-pitch-tile-inn {
           font-size: 8px;
@@ -790,26 +790,33 @@ export default function PrintLineupPage() {
           border-bottom: 2px solid #E6ECF5;
         }
 
-        /* Bench row */
+        /* Bench row — stacked names per inning */
         .s-row-bench td {
           border-bottom: none;
+          vertical-align: top;
+          padding-top: 5px;
+          padding-bottom: 5px;
         }
         .s-bench-label {
           text-align: left;
           font-weight: 600;
           padding-left: 8px !important;
           color: #94A3B8;
-          font-style: italic;
           font-size: 10px;
+          vertical-align: middle;
         }
-        .s-bench-names {
+        .s-bench-cell {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 1px;
+        }
+        .s-bench-name {
           font-size: 9px;
-          color: #94A3B8;
-          font-style: italic;
+          font-weight: 500;
+          color: #8896AB;
+          line-height: 1.25;
           white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          letter-spacing: 0.1px;
         }
 
         /* ─── Share Absent ────────────────────────── */
@@ -1214,22 +1221,27 @@ export default function PrintLineupPage() {
                       );
                     })}
 
-                    {/* ─── Bench Row ──────────────────── */}
+                    {/* ─── Bench Row (stacked names) ──── */}
                     <tr className="s-row-bench">
                       <td className="s-bench-label">BN</td>
                       {inningCols.map((inn) => {
-                        const names = getBenchPlayers(inn).map((p) => p.name);
+                        const benchPlayers = getBenchPlayers(inn);
                         return (
                           <td
                             key={inn}
-                            className="s-bench-names"
                             style={
                               inn % 2 === 0
                                 ? { background: COL_TINT }
                                 : undefined
                             }
                           >
-                            {names.join(" \u00b7 ")}
+                            <div className="s-bench-cell">
+                              {benchPlayers.map((p) => (
+                                <span key={p.id} className="s-bench-name">
+                                  {p.name}
+                                </span>
+                              ))}
+                            </div>
                           </td>
                         );
                       })}
