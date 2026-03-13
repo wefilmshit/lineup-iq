@@ -369,33 +369,19 @@ export default function Home() {
 
       {/* Fairness Health Check */}
       {fairnessIssues.length > 0 && (
-        <Card className="border-[#EF4444]/50 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg text-[#EF4444]">
-              Fairness Alerts
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-1">
-              {fairnessIssues.map((issue, i) => (
-                <li key={i} className="text-sm flex items-center gap-2 text-[#0B1F3A]">
-                  <Badge variant="destructive" className="text-xs">
-                    !
-                  </Badge>
-                  {issue}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#EF4444]/5 border border-[#EF4444]/20">
+          <span className="text-[#EF4444] text-sm font-semibold shrink-0">Fairness:</span>
+          <p className="text-sm text-[#0B1F3A]">
+            {fairnessIssues.join(" · ")}
+          </p>
+        </div>
       )}
 
       {fairnessIssues.length === 0 && games.length > 0 && (
-        <Card className="border-[#2ECC71]/30 bg-[#2ECC71]/5 shadow-sm">
-          <CardContent className="py-4 text-center text-[#059669] text-sm font-medium">
-            All players are getting fair playing time
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#2ECC71]/5 border border-[#2ECC71]/20">
+          <span className="text-[#2ECC71] text-sm font-semibold shrink-0">Fairness:</span>
+          <p className="text-sm text-[#0B1F3A]">All players are getting fair playing time</p>
+        </div>
       )}
 
       {/* Recent Games */}
