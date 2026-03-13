@@ -76,6 +76,26 @@ function SkillBar({ value, label, color }: { value: number; label: string; color
   );
 }
 
+// ─── Mobile Full-Width Skill Bar ────────────────────────
+
+function MobileSkillBar({ value, label, color }: { value: number; label: string; color: string }) {
+  const pct = (value / 10) * 100;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">{label}</span>
+        <span className="text-xs font-bold text-[#0B1F3A]">{value}</span>
+      </div>
+      <div className="w-full h-2 rounded-full bg-[#E2E8F0]">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${pct}%`, backgroundColor: color }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ─── Role Chip Component ────────────────────────────────
 
 function RoleChip({ label, variant = "default" }: { label: string; variant?: "default" | "accent" }) {
@@ -168,23 +188,23 @@ function PlayerMobileCard({
   if (highlights.topPitcher === player.id) badges.push("Top Arm");
 
   return (
-    <div className="bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-sm">
+    <div className="bg-white rounded-2xl border border-[#E2E8F0] px-3.5 py-3 shadow-sm">
       {/* Top row: player info + actions */}
       <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#1E63E9] flex items-center justify-center text-white font-bold text-sm shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-full bg-[#1E63E9] flex items-center justify-center text-white font-bold text-xs shrink-0">
             {player.jersey_number ?? "–"}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-[#0B1F3A] text-base">{player.name}</span>
+              <span className="font-semibold text-[#0B1F3A] text-[15px]">{player.name}</span>
               {player.bats !== "R" && (
                 <span className="text-[11px] text-[#6B7280] font-medium">
                   Bats {player.bats === "L" ? "L" : "S"}
                 </span>
               )}
             </div>
-            <div className="text-sm text-[#6B7280]">
+            <div className="text-[13px] text-[#6B7280]">
               {player.league_age ? `Age ${player.league_age}` : ""}
               {player.league_age && player.throws ? " · " : ""}
               {player.throws ? `Throws ${player.throws}` : ""}
@@ -195,7 +215,7 @@ function PlayerMobileCard({
       </div>
 
       {/* Roles */}
-      <div className="flex gap-1.5 mt-3 flex-wrap">
+      <div className="flex gap-1.5 mt-2.5 flex-wrap">
         {player.preferred_pitcher && <RoleChip label="Ace" variant="accent" />}
         {player.can_pitch && !player.preferred_pitcher && <RoleChip label="P" />}
         {player.can_catch && <RoleChip label="C" />}
@@ -207,12 +227,12 @@ function PlayerMobileCard({
         ))}
       </div>
 
-      {/* Ratings */}
-      <div className="mt-3 space-y-1.5">
-        <SkillBar value={player.batting_rating} label="BAT" color="#1E63E9" />
-        <SkillBar value={player.fielding_rating} label="FLD" color="#2ECC71" />
+      {/* Full-width ratings */}
+      <div className="mt-2.5 space-y-2">
+        <MobileSkillBar value={player.batting_rating} label="Bat" color="#1E63E9" />
+        <MobileSkillBar value={player.fielding_rating} label="Field" color="#2ECC71" />
         {player.can_pitch && (
-          <SkillBar value={player.pitching_rating} label="PIT" color="#FFC857" />
+          <MobileSkillBar value={player.pitching_rating} label="Pitch" color="#FFC857" />
         )}
       </div>
     </div>
