@@ -30,7 +30,7 @@ export default function RootLayout({
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased bg-[#F7F9FC]`}
       >
         <Nav />
-        <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>
+        <main className="max-w-5xl mx-auto px-4 py-6 pb-24 md:pb-6">{children}</main>
         <Toaster />
       </body>
     </html>
