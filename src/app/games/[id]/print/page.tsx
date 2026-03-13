@@ -594,8 +594,8 @@ export default function PrintLineupPage() {
         /* ─── Share Pitching Tiles ────────────────── */
         .share-pitching {
           padding: 8px 12px 9px;
-          background: #FEF2F2;
-          border-bottom: 1px solid #FECACA;
+          background: #ffffff;
+          border-bottom: 1px solid #E6ECF5;
         }
         .share-pitching-label {
           font-size: 8px;
@@ -618,7 +618,7 @@ export default function PrintLineupPage() {
           align-items: center;
           gap: 0px;
           background: #ffffff;
-          border: 1px solid #FECACA;
+          border: 1px solid #E6ECF5;
           border-radius: 8px;
           padding: 5px 6px 6px;
         }
@@ -770,9 +770,9 @@ export default function PrintLineupPage() {
           text-overflow: ellipsis;
         }
 
-        /* Pitcher row — red emphasis */
-        .s-row-pitcher td {
-          background: #FEF2F2 !important;
+        /* Pitcher row — red text accent only */
+        .s-row-pitcher td:first-child {
+          border-left: 3px solid #DC2626;
         }
         .s-pitcher-text {
           color: #DC2626;
