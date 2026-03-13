@@ -17,6 +17,14 @@ import {
 } from "@/lib/types";
 import { toPng } from "html-to-image";
 
+/* ─── Position group boundaries for visual separators ─── */
+const GROUP_END_POSITIONS = new Set<Position>(["C", "3B"]);
+
+/* ─── Column alternation tint for ESPN-style vertical lanes ─── */
+const COL_TINT = "rgba(30, 99, 233, 0.03)";
+const COL_TINT_HEADER = "#E8ECF3";
+const COL_CLEAR_HEADER = "#F0F4F8";
+
 export default function PrintLineupPage() {
   const params = useParams();
   const gameId = params.id as string;
@@ -90,7 +98,7 @@ export default function PrintLineupPage() {
     setSharing(true);
     try {
       const dataUrl = await toPng(shareRef.current, {
-        backgroundColor: "#ffffff",
+        backgroundColor: "#F7F9FC",
         pixelRatio: 2,
       });
 
@@ -126,6 +134,8 @@ export default function PrintLineupPage() {
   const innings = game.innings;
   const inningCols = Array.from({ length: innings }, (_, i) => i + 1);
 
+  /* ─── Helpers ───────────────────────────────────────── */
+
   function getPlayerAtPosition(
     inning: number,
     position: Position
@@ -137,10 +147,7 @@ export default function PrintLineupPage() {
     return playerMap.get(assignment.player_id);
   }
 
-  function getPlayerPosition(
-    playerId: string,
-    inning: number
-  ): string {
+  function getPlayerPosition(playerId: string, inning: number): string {
     const assignment = lineups.find(
       (l) => l.player_id === playerId && l.inning === inning
     );
@@ -164,6 +171,17 @@ export default function PrintLineupPage() {
     return p.name;
   }
 
+  /** Short date: "2026-03-14" → "Mar 14, 2026" */
+  function formatDateShort(dateStr: string): string {
+    const months = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    const d = new Date(dateStr + "T12:00:00");
+    if (isNaN(d.getTime())) return dateStr;
+    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  }
+
   // Position cell styling for PRINT layout (blue pitcher)
   function posCellClass(pos: string): string {
     if (pos === "P") return "cell-pitcher";
@@ -171,16 +189,6 @@ export default function PrintLineupPage() {
     if (INFIELD_POSITIONS.includes(pos as Position)) return "cell-infield";
     if (OUTFIELD_POSITIONS.includes(pos as Position)) return "cell-outfield";
     if (pos === "C") return "cell-infield";
-    return "";
-  }
-
-  // Position cell styling for SHARE layout (red pitcher)
-  function sharePosCellClass(pos: string): string {
-    if (pos === "P") return "share-cell-pitcher";
-    if (pos === "BENCH" || pos === "BN") return "share-cell-bench";
-    if (INFIELD_POSITIONS.includes(pos as Position)) return "share-cell-infield";
-    if (OUTFIELD_POSITIONS.includes(pos as Position)) return "share-cell-outfield";
-    if (pos === "C") return "share-cell-infield";
     return "";
   }
 
@@ -507,21 +515,29 @@ export default function PrintLineupPage() {
           color: #2F80FF;
         }
 
-        /* ════════════════════════════════════════════
-           SHARE IMAGE LAYOUT — Mobile-optimized
-           ════════════════════════════════════════════ */
+        /* ════════════════════════════════════════════════════
+           SHARE IMAGE LAYOUT — Premium mobile-optimized
+           ════════════════════════════════════════════════════ */
 
-        .share-layout {
+        .share-outer {
+          background: #F7F9FC;
+          padding: 10px;
           width: 390px;
           font-family: 'Inter', system-ui, -apple-system, sans-serif;
           color: #0B1F3A;
+        }
+        .share-card {
           background: #ffffff;
+          border-radius: 14px;
+          border: 1px solid #E6ECF5;
+          box-shadow: 0 2px 16px rgba(11, 31, 58, 0.07);
+          overflow: hidden;
         }
 
         /* ─── Share Header ────────────────────────── */
         .share-header {
-          background: #1E63E9;
-          padding: 16px 18px 14px;
+          background: linear-gradient(180deg, #1E63E9 0%, #1856D0 100%);
+          padding: 13px 16px 11px;
           text-align: center;
           position: relative;
         }
@@ -535,40 +551,59 @@ export default function PrintLineupPage() {
           background: linear-gradient(90deg, #FFC857, #FFC857 30%, #2F80FF 30%);
         }
         .share-header-team {
-          font-size: 18px;
+          font-size: 17px;
           font-weight: 800;
           text-transform: uppercase;
-          letter-spacing: 1px;
+          letter-spacing: 1.2px;
           color: #ffffff;
-          line-height: 1.2;
+          line-height: 1.15;
         }
         .share-header-opponent {
           font-size: 13px;
+          font-weight: 700;
+          color: rgba(255,255,255,0.92);
+          margin-top: 1px;
+          letter-spacing: 0.5px;
+        }
+        .share-header-vs {
           font-weight: 500;
-          color: rgba(255,255,255,0.85);
-          margin-top: 2px;
+          text-transform: lowercase;
+          letter-spacing: 0;
+          opacity: 0.7;
         }
         .share-header-meta {
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 500;
-          color: rgba(255,255,255,0.6);
-          margin-top: 3px;
+          color: rgba(255,255,255,0.5);
+          margin-top: 2px;
           letter-spacing: 0.3px;
+        }
+        .share-hv-badge {
+          display: inline-block;
+          background: rgba(255,255,255,0.18);
+          border-radius: 3px;
+          padding: 1px 5px;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.6px;
+          margin-left: 5px;
+          vertical-align: middle;
+          color: #ffffff;
         }
 
         /* ─── Share Pitching Tiles ────────────────── */
         .share-pitching {
-          padding: 10px 14px;
+          padding: 8px 12px 9px;
           background: #FEF2F2;
           border-bottom: 1px solid #FECACA;
         }
         .share-pitching-label {
-          font-size: 9px;
+          font-size: 8px;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 1.2px;
           color: #DC2626;
-          margin-bottom: 6px;
+          margin-bottom: 5px;
         }
         .share-pitching-tiles {
           display: flex;
@@ -576,31 +611,38 @@ export default function PrintLineupPage() {
           flex-wrap: wrap;
         }
         .share-pitch-tile {
+          flex: 1;
+          min-width: 68px;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 5px;
+          gap: 0px;
           background: #ffffff;
           border: 1px solid #FECACA;
           border-radius: 8px;
-          padding: 5px 10px;
+          padding: 5px 6px 6px;
         }
         .share-pitch-tile-inn {
-          font-size: 10px;
-          font-weight: 800;
+          font-size: 8px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
           color: #DC2626;
           line-height: 1;
+          margin-bottom: 2px;
         }
         .share-pitch-tile-name {
-          font-size: 12px;
-          font-weight: 600;
+          font-size: 13px;
+          font-weight: 700;
           color: #0B1F3A;
-          line-height: 1;
+          line-height: 1.15;
         }
         .share-pitch-tile-jersey {
           font-size: 10px;
           font-weight: 500;
-          color: #6B7280;
+          color: #94A3B8;
           line-height: 1;
+          margin-top: 1px;
         }
 
         /* ─── Share Section Title ─────────────────── */
@@ -608,10 +650,10 @@ export default function PrintLineupPage() {
           display: flex;
           align-items: center;
           gap: 8px;
-          padding: 12px 14px 6px;
+          padding: 9px 12px 4px;
         }
         .share-section-title-text {
-          font-size: 10px;
+          font-size: 9px;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 1.5px;
@@ -624,121 +666,47 @@ export default function PrintLineupPage() {
           background: #E6ECF5;
         }
 
-        /* ─── Share Batting Order (simple list) ──── */
+        /* ─── Share Batting Order (clean list) ────── */
         .share-batting-list {
-          padding: 0 14px 4px;
+          padding: 0 12px 2px;
         }
         .share-batting-row {
           display: flex;
-          align-items: center;
-          padding: 5px 0;
+          align-items: baseline;
+          padding: 3px 0;
           border-bottom: 1px solid #F0F4F8;
         }
         .share-batting-row:last-child {
           border-bottom: none;
         }
         .share-batting-num {
-          width: 24px;
-          font-size: 14px;
+          width: 22px;
+          font-size: 13px;
           font-weight: 800;
           color: #1E63E9;
           text-align: center;
           flex-shrink: 0;
         }
-        .share-batting-name {
+        .share-batting-player {
           flex: 1;
-          font-size: 13px;
+          font-size: 12.5px;
           font-weight: 600;
           color: #0B1F3A;
-          padding-left: 6px;
+          padding-left: 4px;
+          white-space: nowrap;
         }
         .share-batting-jersey {
-          font-size: 11px;
           font-weight: 500;
-          color: #6B7280;
-          padding-right: 4px;
-        }
-
-        /* ─── Share Field Positions Table ─────────── */
-        .share-field-table {
-          width: 100%;
-          border-collapse: collapse;
+          color: #94A3B8;
           font-size: 11px;
-          table-layout: fixed;
-        }
-        .share-field-table th,
-        .share-field-table td {
-          padding: 5px 3px;
-          text-align: center;
-          border-bottom: 1px solid #F0F4F8;
-        }
-        .share-field-table th {
-          font-size: 9px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          color: #6B7280;
-          padding: 7px 3px 5px;
-          background: #FAFBFD;
-          border-bottom: 2px solid #E6ECF5;
-        }
-        .share-field-table tbody tr:nth-child(even) {
-          background: #FAFBFD;
-        }
-
-        .share-cell-pos-label {
-          text-align: left;
-          font-weight: 700;
-          padding-left: 8px !important;
-          color: #0B1F3A;
-          font-size: 11px;
-          width: 36px;
-        }
-        .share-name-cell {
-          font-size: 10px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .share-bench-names {
-          font-size: 9px;
-          color: #94A3B8;
-          font-style: italic;
-        }
-
-        /* Position cell treatments — SHARE (red pitcher) */
-        .share-cell-pitcher {
-          background: #FEF2F2;
-          color: #DC2626;
-          font-weight: 700;
-        }
-        .share-cell-bench {
-          color: #94A3B8;
-          font-style: italic;
-          font-weight: 400;
-          background: #FAFBFD;
-        }
-        .share-cell-infield {
-          color: #0B1F3A;
-          font-weight: 600;
-        }
-        .share-cell-outfield {
-          color: #374151;
-          font-weight: 500;
-        }
-
-        /* ─── Share Absent ────────────────────────── */
-        .share-absent-line {
-          font-size: 10px;
-          color: #94A3B8;
-          padding: 4px 14px 0;
+          margin-left: 3px;
         }
 
         /* ─── Share Divider ───────────────────────── */
         .share-divider {
           position: relative;
-          height: 20px;
-          margin: 4px 14px;
+          height: 14px;
+          margin: 2px 12px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -753,11 +721,102 @@ export default function PrintLineupPage() {
         .share-divider-diamond {
           position: relative;
           z-index: 1;
-          width: 7px;
-          height: 7px;
+          width: 6px;
+          height: 6px;
           background: white;
-          border: 2px solid #1E63E9;
+          border: 1.5px solid #1E63E9;
           transform: rotate(45deg);
+        }
+
+        /* ─── Share Field Positions Table ─────────── */
+        .share-field-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 10.5px;
+          table-layout: fixed;
+        }
+        .share-field-table th {
+          font-size: 9px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+          color: #6B7280;
+          padding: 6px 2px 5px;
+          border-bottom: 2px solid #E6ECF5;
+        }
+        .share-field-table td {
+          padding: 4px 2px;
+          text-align: center;
+          border-bottom: 1px solid #F0F4F8;
+        }
+
+        /* Position label column */
+        .s-pos-label {
+          text-align: left;
+          font-weight: 700;
+          padding-left: 8px !important;
+          color: #0B1F3A;
+          font-size: 10.5px;
+          width: 34px;
+        }
+
+        /* Name cells */
+        .s-name {
+          font-size: 10px;
+          font-weight: 500;
+          color: #374151;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        /* Pitcher row — red emphasis */
+        .s-row-pitcher td {
+          background: #FEF2F2 !important;
+        }
+        .s-pitcher-text {
+          color: #DC2626;
+          font-weight: 700;
+        }
+
+        /* Infield cells */
+        .s-infield-text {
+          color: #0B1F3A;
+          font-weight: 600;
+        }
+
+        /* Group separator (thicker bottom border) */
+        .s-group-end td {
+          border-bottom: 2px solid #E6ECF5;
+        }
+
+        /* Bench row */
+        .s-row-bench td {
+          border-bottom: none;
+        }
+        .s-bench-label {
+          text-align: left;
+          font-weight: 600;
+          padding-left: 8px !important;
+          color: #94A3B8;
+          font-style: italic;
+          font-size: 10px;
+        }
+        .s-bench-names {
+          font-size: 9px;
+          color: #94A3B8;
+          font-style: italic;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          letter-spacing: 0.1px;
+        }
+
+        /* ─── Share Absent ────────────────────────── */
+        .share-absent-line {
+          font-size: 9px;
+          color: #94A3B8;
+          padding: 3px 12px 0;
         }
 
         /* ─── Share Footer ────────────────────────── */
@@ -765,8 +824,8 @@ export default function PrintLineupPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 6px;
-          padding: 8px 14px 10px;
+          gap: 5px;
+          padding: 7px 12px 9px;
           border-top: 1px solid #F0F4F8;
         }
         .share-footer-diamond {
@@ -975,150 +1034,219 @@ export default function PrintLineupPage() {
       </div>
       {/* end print content */}
 
-      {/* ═══════════════════════════════════════════════════════
-          SHARE AS IMAGE CONTENT — Mobile-optimized (off-screen)
-          ═══════════════════════════════════════════════════════ */}
+      {/* ═══════════════════════════════════════════════════════════
+          SHARE AS IMAGE — Premium mobile-optimized (off-screen)
+          ═══════════════════════════════════════════════════════════ */}
       <div
         className="share-offscreen"
         style={{ position: "absolute", left: "-9999px", top: 0 }}
       >
         <div ref={shareRef}>
-          <div className="share-layout">
+          <div className="share-outer">
+            <div className="share-card">
 
-            {/* ─── Header ──────────────────────────── */}
-            <div className="share-header">
-              <div className="share-header-team">{teamName}</div>
-              {game.opponent && (
-                <div className="share-header-opponent">vs {game.opponent}</div>
-              )}
-              <div className="share-header-meta">
-                Game {game.game_number}
-                {game.date ? ` \u2022 ${game.date}` : ""}
-                {homeVisitor && <span className="hv-badge">{homeVisitor}</span>}
-              </div>
-            </div>
-
-            {/* ─── Pitching Rotation Tiles ──────────── */}
-            {pitchingPlan.length > 0 && (
-              <div className="share-pitching">
-                <div className="share-pitching-label">Pitching Rotation</div>
-                <div className="share-pitching-tiles">
-                  {pitchingPlan.map((pp) => {
-                    const pitcher = playerMap.get(pp.player_id);
-                    return (
-                      <div key={pp.inning} className="share-pitch-tile">
-                        <span className="share-pitch-tile-inn">Inn {pp.inning}</span>
-                        <span className="share-pitch-tile-name">
-                          {pitcher?.name ?? "?"}
-                        </span>
-                        {pitcher?.jersey_number && (
-                          <span className="share-pitch-tile-jersey">
-                            #{pitcher.jersey_number}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+              {/* ─── Header ──────────────────────────── */}
+              <div className="share-header">
+                <div className="share-header-team">{teamName}</div>
+                {game.opponent && (
+                  <div className="share-header-opponent">
+                    <span className="share-header-vs">vs </span>
+                    {game.opponent.toUpperCase()}
+                  </div>
+                )}
+                <div className="share-header-meta">
+                  Game {game.game_number}
+                  {game.date ? ` \u00b7 ${formatDateShort(game.date)}` : ""}
+                  {homeVisitor && (
+                    <span className="share-hv-badge">{homeVisitor}</span>
+                  )}
                 </div>
               </div>
-            )}
 
-            {/* ─── Batting Order (simple list) ─────── */}
-            <div className="share-section-title">
-              <span className="share-section-title-text">Batting Order</span>
-              <div className="share-section-title-line" />
-            </div>
-
-            <div className="share-batting-list">
-              {battingOrder.map((b) => {
-                const player = playerMap.get(b.player_id);
-                return (
-                  <div key={b.player_id} className="share-batting-row">
-                    <span className="share-batting-num">{b.order_position}</span>
-                    <span className="share-batting-name">
-                      {player?.name ?? "?"}
-                    </span>
-                    {player?.jersey_number && (
-                      <span className="share-batting-jersey">
-                        #{player.jersey_number}
-                      </span>
-                    )}
+              {/* ─── Pitching Rotation Tiles ──────────── */}
+              {pitchingPlan.length > 0 && (
+                <div className="share-pitching">
+                  <div className="share-pitching-label">Pitching Rotation</div>
+                  <div className="share-pitching-tiles">
+                    {pitchingPlan.map((pp) => {
+                      const pitcher = playerMap.get(pp.player_id);
+                      return (
+                        <div key={pp.inning} className="share-pitch-tile">
+                          <span className="share-pitch-tile-inn">
+                            Inn {pp.inning}
+                          </span>
+                          <span className="share-pitch-tile-name">
+                            {pitcher?.name ?? "?"}
+                          </span>
+                          {pitcher?.jersey_number != null && (
+                            <span className="share-pitch-tile-jersey">
+                              #{pitcher.jersey_number}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              )}
 
-            {absences.length > 0 && (
-              <div className="share-absent-line" style={{ paddingTop: 2 }}>
-                Absent:{" "}
-                {absences
-                  .map((a) => playerMap.get(a.player_id)?.name ?? "?")
-                  .join(", ")}
+              {/* ─── Batting Order (clean vertical list) ── */}
+              <div className="share-section-title">
+                <span className="share-section-title-text">Batting Order</span>
+                <div className="share-section-title-line" />
               </div>
-            )}
 
-            {/* ─── Divider ─────────────────────────── */}
-            <div className="share-divider">
-              <div className="share-divider-diamond" />
-            </div>
+              <div className="share-batting-list">
+                {battingOrder.map((b) => {
+                  const player = playerMap.get(b.player_id);
+                  return (
+                    <div key={b.player_id} className="share-batting-row">
+                      <span className="share-batting-num">
+                        {b.order_position}
+                      </span>
+                      <span className="share-batting-player">
+                        {player?.name ?? "?"}
+                        {player?.jersey_number != null && (
+                          <span className="share-batting-jersey">
+                            #{player.jersey_number}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
 
-            {/* ─── Field Positions Table ────────────── */}
-            <div className="share-section-title">
-              <span className="share-section-title-text">Field Positions</span>
-              <div className="share-section-title-line" />
-            </div>
+              {absences.length > 0 && (
+                <div className="share-absent-line">
+                  Absent:{" "}
+                  {absences
+                    .map((a) => playerMap.get(a.player_id)?.name ?? "?")
+                    .join(", ")}
+                </div>
+              )}
 
-            <div style={{ padding: "0 10px 4px" }}>
-              <table className="share-field-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: "36px", textAlign: "left", paddingLeft: 8 }}>Pos</th>
-                    {inningCols.map((inn) => (
-                      <th key={inn}>Inn {inn}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {FIELD_POSITIONS.map((pos) => (
-                    <tr key={pos}>
-                      <td className={`share-cell-pos-label ${pos === "P" ? "share-cell-pitcher" : ""}`}>
-                        {pos}
-                      </td>
+              {/* ─── Divider ─────────────────────────── */}
+              <div className="share-divider">
+                <div className="share-divider-diamond" />
+              </div>
+
+              {/* ─── Field Positions Table (ESPN-style) ── */}
+              <div className="share-section-title">
+                <span className="share-section-title-text">Field Positions</span>
+                <div className="share-section-title-line" />
+              </div>
+
+              <div style={{ padding: "0 8px 4px" }}>
+                <table className="share-field-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "34px", textAlign: "left", paddingLeft: 8 }}>
+                        Pos
+                      </th>
+                      {inningCols.map((inn) => (
+                        <th
+                          key={inn}
+                          style={{
+                            background: inn % 2 === 0 ? COL_TINT_HEADER : COL_CLEAR_HEADER,
+                          }}
+                        >
+                          {inn}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {FIELD_POSITIONS.map((pos) => {
+                      const isPitcher = pos === "P";
+                      const isCatcher = pos === "C";
+                      const isInfield = INFIELD_POSITIONS.includes(pos);
+                      const isGroupEnd = GROUP_END_POSITIONS.has(pos);
+
+                      return (
+                        <tr
+                          key={pos}
+                          className={[
+                            isPitcher ? "s-row-pitcher" : "",
+                            isGroupEnd ? "s-group-end" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                        >
+                          <td
+                            className="s-pos-label"
+                            style={
+                              isPitcher
+                                ? { color: "#DC2626", fontWeight: 800 }
+                                : undefined
+                            }
+                          >
+                            {pos}
+                          </td>
+                          {inningCols.map((inn) => {
+                            const player = getPlayerAtPosition(inn, pos);
+                            const colBg =
+                              inn % 2 === 0 ? COL_TINT : undefined;
+
+                            return (
+                              <td
+                                key={inn}
+                                className={[
+                                  "s-name",
+                                  isPitcher ? "s-pitcher-text" : "",
+                                  (isInfield || isCatcher) && !isPitcher
+                                    ? "s-infield-text"
+                                    : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ")}
+                                style={
+                                  !isPitcher && colBg
+                                    ? { background: colBg }
+                                    : undefined
+                                }
+                              >
+                                {playerNameShort(player)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+
+                    {/* ─── Bench Row ──────────────────── */}
+                    <tr className="s-row-bench">
+                      <td className="s-bench-label">BN</td>
                       {inningCols.map((inn) => {
-                        const player = getPlayerAtPosition(inn, pos);
+                        const names = getBenchPlayers(inn).map((p) => p.name);
                         return (
                           <td
                             key={inn}
-                            className={`share-name-cell ${pos === "P" ? "share-cell-pitcher" : ""}`}
+                            className="s-bench-names"
+                            style={
+                              inn % 2 === 0
+                                ? { background: COL_TINT }
+                                : undefined
+                            }
                           >
-                            {playerNameShort(player)}
+                            {names.join(" \u00b7 ")}
                           </td>
                         );
                       })}
                     </tr>
-                  ))}
-                  <tr>
-                    <td className="share-cell-pos-label" style={{ color: "#94A3B8" }}>BN</td>
-                    {inningCols.map((inn) => (
-                      <td key={inn} className="share-bench-names">
-                        {getBenchPlayers(inn)
-                          .map((p) => p.name)
-                          .join(", ")}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                  </tbody>
+                </table>
+              </div>
 
-            {/* ─── Footer ──────────────────────────── */}
-            <div className="share-footer">
-              <div className="share-footer-diamond" />
-              <span className="share-footer-text">
-                Generated by Lineup<span className="share-footer-iq">IQ</span>
-              </span>
-            </div>
+              {/* ─── Footer ──────────────────────────── */}
+              <div className="share-footer">
+                <div className="share-footer-diamond" />
+                <span className="share-footer-text">
+                  Generated by Lineup<span className="share-footer-iq">IQ</span>
+                </span>
+              </div>
 
+            </div>
           </div>
         </div>
       </div>
