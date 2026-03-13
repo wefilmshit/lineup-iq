@@ -119,7 +119,7 @@ export default function PrintLineupPage() {
   }
 
   if (loading || !game) {
-    return <div className="p-8 text-gray-500">Loading...</div>;
+    return <div className="p-8 text-[#6B7280]">Loading lineup...</div>;
   }
 
   const innings = game.innings;
