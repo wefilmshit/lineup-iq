@@ -67,13 +67,20 @@ function computeFairnessScores(
   if (stats.length < 2)
     return { batting: 100, field: 100, bench: 100, pitching: 100, overall: 100 };
 
-  const battingAvgs = stats
+  // Only score players who have actually played at least 1 game
+  const active = stats.filter((s) => s.gamesPlayed > 0);
+  if (active.length < 2)
+    return { batting: 100, field: 100, bench: 100, pitching: 100, overall: 100 };
+
+  // Batting: CV of avgBattingPosition (already a per-game average)
+  const battingAvgs = active
     .filter((s) => s.avgBattingPosition > 0)
     .map((s) => s.avgBattingPosition);
   const battingCV = coefficientOfVariation(battingAvgs);
   const batting = Math.max(0, Math.min(100, 100 - battingCV * 150));
 
-  const ifRatios = stats
+  // Field: CV of infield ratio (already a ratio, immune to absence)
+  const ifRatios = active
     .filter((s) => s.totalInnings > 0)
     .map((s) => {
       const fieldTime = s.infieldInnings + s.outfieldInnings;
@@ -82,18 +89,20 @@ function computeFairnessScores(
   const fieldCV = coefficientOfVariation(ifRatios);
   const field = Math.max(0, Math.min(100, 100 - fieldCV * 120));
 
-  const benchValues = stats.map((s) => s.benchInnings);
-  const benchCV = coefficientOfVariation(benchValues);
+  // Bench: CV of bench innings PER GAME PLAYED (normalizes for absences)
+  const benchRates = active.map((s) => s.benchInnings / s.gamesPlayed);
+  const benchCV = coefficientOfVariation(benchRates);
   const bench = Math.max(0, Math.min(100, 100 - benchCV * 100));
 
-  const eligiblePitchers = stats.filter((s) => {
+  // Pitching: CV of pitcher innings PER GAME PLAYED among eligible
+  const eligiblePitchers = active.filter((s) => {
     const player = players.find((p) => p.id === s.playerId);
     return player?.can_pitch;
   });
   let pitching = 100;
   if (eligiblePitchers.length >= 2) {
-    const pitchValues = eligiblePitchers.map((s) => s.pitcherInnings);
-    const pitchCV = coefficientOfVariation(pitchValues);
+    const pitchRates = eligiblePitchers.map((s) => s.pitcherInnings / s.gamesPlayed);
+    const pitchCV = coefficientOfVariation(pitchRates);
     pitching = Math.max(0, Math.min(100, 100 - pitchCV * 80));
   }
 
@@ -142,8 +151,8 @@ const FLAG_CATEGORIES: Record<string, { label: string; icon: string }> = {
 
 function getEnhancedFlags(
   s: PlayerSeasonStats,
-  avgInnings: number,
-  avgBench: number,
+  avgInningsPerGame: number,
+  avgBenchPerGame: number,
   teamAvgBatting: number,
   player: Player | undefined,
   gameCount: number
@@ -151,23 +160,31 @@ function getEnhancedFlags(
   const flags: FairnessFlag[] = [];
   if (s.gamesPlayed < 1) return flags;
 
-  if (s.totalInnings < avgInnings - 2)
+  // Compare per-game rates so absent players aren't penalized
+  const playerInningsPerGame = s.totalInnings / s.gamesPlayed;
+  const playerBenchPerGame = s.benchInnings / s.gamesPlayed;
+
+  // Threshold: player's per-game field innings significantly below team per-game average
+  if (playerInningsPerGame < avgInningsPerGame - 1.5)
     flags.push({
       type: "low-playing-time",
-      label: "has low playing time",
+      label: "gets less field time per game",
       severity: "critical",
       recommendation: `Prioritize ${s.playerName} for field time`,
       category: "playing-time",
     });
-  if (s.benchInnings > avgBench + 2)
+  // Threshold: player's per-game bench time significantly above team per-game average
+  if (playerBenchPerGame > avgBenchPerGame + 1.5)
     flags.push({
       type: "high-bench",
-      label: "has high bench time",
+      label: "benches more per game than average",
       severity: "critical",
       recommendation: `Reduce bench time for ${s.playerName}`,
       category: "playing-time",
     });
-  if (s.infieldInnings === 0 && s.totalInnings > 3)
+  // Position rotation flags: use per-game thresholds (3 innings = ~1 game)
+  const minInningsForRotation = s.gamesPlayed * 3;
+  if (s.infieldInnings === 0 && s.totalInnings >= minInningsForRotation)
     flags.push({
       type: "no-infield",
       label: "hasn\u2019t played infield yet",
@@ -175,7 +192,7 @@ function getEnhancedFlags(
       recommendation: `Give ${s.playerName} an infield start`,
       category: "position-rotation",
     });
-  if (s.outfieldInnings === 0 && s.totalInnings > 3)
+  if (s.outfieldInnings === 0 && s.totalInnings >= minInningsForRotation)
     flags.push({
       type: "no-outfield",
       label: "hasn\u2019t played outfield yet",
@@ -205,7 +222,8 @@ function getEnhancedFlags(
       recommendation: `Move ${s.playerName} lower in the batting order`,
       category: "batting-order",
     });
-  if (player?.can_pitch && s.pitcherInnings === 0 && gameCount >= 3)
+  // Only flag no-pitching after the player has played 3+ games themselves
+  if (player?.can_pitch && s.pitcherInnings === 0 && s.gamesPlayed >= 3)
     flags.push({
       type: "no-pitching",
       label: "hasn\u2019t pitched yet",
@@ -220,10 +238,11 @@ function getEnhancedFlags(
 function getPlayerMetricScores(
   s: PlayerSeasonStats,
   numPlayers: number,
-  avgBench: number,
-  avgPitching: number,
+  avgBenchPerGame: number,
+  avgPitchingPerGame: number,
   canPitch: boolean
 ): { batting: number; field: number; bench: number; pitch: number } {
+  // Batting: avgBattingPosition is already a per-game average — no change needed
   const midpoint = (numPlayers + 1) / 2;
   let batting = 100;
   if (s.avgBattingPosition > 0) {
@@ -231,6 +250,7 @@ function getPlayerMetricScores(
     batting = Math.max(0, Math.min(100, 100 - dev * 150));
   }
 
+  // Field: IF/OF ratio is immune to absence (it's a proportion of time played)
   const fieldTime = s.infieldInnings + s.outfieldInnings;
   let field = 100;
   if (fieldTime > 0) {
@@ -239,20 +259,28 @@ function getPlayerMetricScores(
     field = Math.max(0, Math.min(100, 100 - deviation * 100));
   }
 
+  // Bench: compare per-game bench rate against team per-game average
   let bench = 100;
-  if (avgBench > 0) {
-    const diff = (s.benchInnings - avgBench) / Math.max(avgBench, 1);
-    bench = Math.max(0, Math.min(100, 100 - Math.abs(diff) * 80));
-  } else if (s.benchInnings > 0) {
-    bench = Math.max(0, 100 - s.benchInnings * 20);
+  if (s.gamesPlayed > 0) {
+    const playerBenchRate = s.benchInnings / s.gamesPlayed;
+    if (avgBenchPerGame > 0) {
+      const diff = (playerBenchRate - avgBenchPerGame) / Math.max(avgBenchPerGame, 0.5);
+      bench = Math.max(0, Math.min(100, 100 - Math.abs(diff) * 80));
+    } else if (playerBenchRate > 0) {
+      bench = Math.max(0, 100 - playerBenchRate * 30);
+    }
   }
 
+  // Pitch: compare per-game pitch rate against team per-game average
   let pitch = 100;
-  if (canPitch && avgPitching > 0) {
-    const diff = (s.pitcherInnings - avgPitching) / Math.max(avgPitching, 1);
-    pitch = Math.max(0, Math.min(100, 100 - Math.abs(diff) * 60));
-  } else if (canPitch && s.pitcherInnings === 0) {
-    pitch = 40;
+  if (canPitch && s.gamesPlayed > 0) {
+    const playerPitchRate = s.pitcherInnings / s.gamesPlayed;
+    if (avgPitchingPerGame > 0) {
+      const diff = (playerPitchRate - avgPitchingPerGame) / Math.max(avgPitchingPerGame, 0.5);
+      pitch = Math.max(0, Math.min(100, 100 - Math.abs(diff) * 60));
+    } else if (canPitch && s.pitcherInnings === 0) {
+      pitch = 40;
+    }
   }
 
   return {
@@ -418,23 +446,29 @@ export default function FairnessPage() {
 
   const playerEntries = useMemo((): PlayerEntry[] => {
     if (stats.length === 0) return [];
-    const avgInnings =
-      stats.reduce((sum, s) => sum + s.totalInnings, 0) / stats.length;
-    const avgBench =
-      stats.reduce((sum, s) => sum + s.benchInnings, 0) / stats.length;
+    // Use per-game-played rates so absent players aren't penalized
+    const activePlayers = stats.filter((s) => s.gamesPlayed > 0);
+    const avgInningsPerGame =
+      activePlayers.length > 0
+        ? activePlayers.reduce((sum, s) => sum + s.totalInnings / s.gamesPlayed, 0) / activePlayers.length
+        : 0;
+    const avgBenchPerGame =
+      activePlayers.length > 0
+        ? activePlayers.reduce((sum, s) => sum + s.benchInnings / s.gamesPlayed, 0) / activePlayers.length
+        : 0;
     const battingPlayers = stats.filter((s) => s.avgBattingPosition > 0);
     const teamAvgBatting =
       battingPlayers.length > 0
         ? battingPlayers.reduce((sum, s) => sum + s.avgBattingPosition, 0) /
           battingPlayers.length
         : 0;
-    const eligiblePitchers = stats.filter((s) => {
+    const eligiblePitchers = activePlayers.filter((s) => {
       const p = players.find((pl) => pl.id === s.playerId);
       return p?.can_pitch;
     });
-    const avgPitching =
+    const avgPitchingPerGame =
       eligiblePitchers.length > 0
-        ? eligiblePitchers.reduce((sum, s) => sum + s.pitcherInnings, 0) /
+        ? eligiblePitchers.reduce((sum, s) => sum + s.pitcherInnings / s.gamesPlayed, 0) /
           eligiblePitchers.length
         : 0;
 
@@ -442,12 +476,12 @@ export default function FairnessPage() {
       .map((s) => {
         const player = players.find((p) => p.id === s.playerId);
         const flags = getEnhancedFlags(
-          s, avgInnings, avgBench, teamAvgBatting, player, finalizedGames.length
+          s, avgInningsPerGame, avgBenchPerGame, teamAvgBatting, player, finalizedGames.length
         );
         const status: PlayerStatus =
           flags.length === 0 ? "balanced" : flags.length === 1 ? "watch" : "needs-rotation";
         const m = getPlayerMetricScores(
-          s, stats.length, avgBench, avgPitching, player?.can_pitch ?? false
+          s, stats.length, avgBenchPerGame, avgPitchingPerGame, player?.can_pitch ?? false
         );
         return {
           stat: s, player, flags, status,
