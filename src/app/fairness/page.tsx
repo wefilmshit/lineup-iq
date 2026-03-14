@@ -607,8 +607,8 @@ export default function FairnessPage() {
             <p className="text-[#6B7280] text-sm sm:text-[15px] mt-1.5 leading-relaxed">
               {finalizedGames.length} finalized game
               {finalizedGames.length !== 1 ? "s" : ""}
-              {team?.season ? ` \u00b7 ${team.season}` : ""} \u00b7{" "}
-              {stats.length} players \u00b7 Avg{" "}
+              {team?.season ? ` · ${team.season}` : ""} ·{" "}
+              {stats.length} players · Avg{" "}
               {avgInnings.toFixed(1)} innings/player
             </p>
           </div>
@@ -869,7 +869,7 @@ export default function FairnessPage() {
                           <div className="text-[11px] text-[#94A3B8] leading-none mt-0.5">
                             {entry.stat.gamesPlayed} game{entry.stat.gamesPlayed !== 1 ? "s" : ""}
                             {entry.stat.gamesAbsent > 0 && (
-                              <span> \u00b7 {entry.stat.gamesAbsent} absent</span>
+                              <span> · {entry.stat.gamesAbsent} absent</span>
                             )}
                           </div>
                         </div>
@@ -908,7 +908,7 @@ export default function FairnessPage() {
                     <div className="text-[11px] text-[#94A3B8] leading-tight">
                       {entry.stat.gamesPlayed} game{entry.stat.gamesPlayed !== 1 ? "s" : ""}
                       {entry.stat.gamesAbsent > 0 && (
-                        <span> \u00b7 {entry.stat.gamesAbsent} absent</span>
+                        <span> · {entry.stat.gamesAbsent} absent</span>
                       )}
                     </div>
                   </div>
@@ -998,7 +998,7 @@ export default function FairnessPage() {
                               width: 36,
                             }}
                           >
-                            {count || "\u00b7"}
+                            {count || "·"}
                           </div>
                         </td>
                       );
@@ -1083,8 +1083,8 @@ export default function FairnessPage() {
                   {s.playerName}
                 </span>
                 <span className="text-[11px] text-[#94A3B8] tabular-nums font-medium">
-                  {s.totalInnings} played{s.benchInnings > 0 ? ` \u00b7 ${s.benchInnings} bench` : ""}
-                  {s.totalPitchCount > 0 && ` \u00b7 ${s.totalPitchCount}p`}
+                  {s.totalInnings} played{s.benchInnings > 0 ? ` · ${s.benchInnings} bench` : ""}
+                  {s.totalPitchCount > 0 && ` · ${s.totalPitchCount}p`}
                 </span>
               </div>
               <div className="flex h-[18px] rounded-lg overflow-hidden bg-[#E6ECF5]">
@@ -1174,12 +1174,12 @@ export default function FairnessPage() {
                           count === 0 ? "text-[#D1D5DB]" : "text-[#0B1F3A] font-medium"
                         }`}
                       >
-                        {count || "\u00b7"}
+                        {count || "·"}
                       </td>
                     );
                   })}
                   <td className="text-center py-2.5 px-1 tabular-nums text-[13px] text-[#94A3B8]">
-                    {s.gamesAbsent || "\u00b7"}
+                    {s.gamesAbsent || "·"}
                   </td>
                   <td className="text-center py-2.5 px-1 tabular-nums text-[13px] font-extrabold text-[#0B1F3A]">
                     {s.totalInnings}
@@ -1264,7 +1264,7 @@ export default function FairnessPage() {
                                     : "text-[#0B1F3A] font-medium"
                                 }`}
                               >
-                                {count || "\u00b7"}
+                                {count || "·"}
                               </td>
                             );
                           })}
